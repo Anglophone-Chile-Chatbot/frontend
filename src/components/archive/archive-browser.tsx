@@ -1,0 +1,313 @@
+"use client";
+
+import { Loader2, Search } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import type { ChatSource, SearchResponse, SearchResult } from "@/lib/api/types";
+import { formatIssueDateShort } from "@/lib/citations";
+import { cn } from "@/lib/utils";
+
+import { SourceViewer } from "./source-viewer";
+
+/**
+ * Full-text search over the archive.
+ *
+ * Distinct from the assistant: this returns the pages themselves, ranked, with
+ * the matching passage shown as a snippet. Results open in the same viewer the
+ * citations use, with the matched passage highlighted.
+ */
+
+const PAGE_SIZE = 20;
+
+type Status = "idle" | "searching" | "loaded" | "error";
+
+export function ArchiveBrowser() {
+  const [query, setQuery] = useState("");
+  const [submitted, setSubmitted] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState<Status>("idle");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [active, setActive] = useState<SearchResult | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+
+  const runSearch = useCallback(async (term: string, offset: number) => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
+    if (offset === 0) setStatus("searching");
+    else setIsLoadingMore(true);
+
+    try {
+      const params = new URLSearchParams({
+        q: term,
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      const response = await fetch(`/api/search?${params}`, {
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(String(response.status));
+
+      const body = (await response.json()) as SearchResponse;
+      setTotal(body.total);
+      setResults((current) =>
+        offset === 0 ? body.results : [...current, ...body.results],
+      );
+      setStatus("loaded");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setStatus("error");
+    } finally {
+      setIsLoadingMore(false);
+      controllerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const term = query.trim();
+    if (term.length === 0) return;
+    setSubmitted(term);
+    setResults([]);
+    void runSearch(term, 0);
+  }
+
+  const hasMore = results.length < total;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 pb-12 sm:px-6 sm:py-7">
+        <p className="eyebrow">Archive</p>
+        <h1 className="mt-2.5 font-heading text-[1.5rem] leading-tight text-foreground sm:text-[1.875rem]">
+          Search the pages directly
+        </h1>
+        <p className="measure mt-2.5 text-[0.875rem] leading-relaxed text-muted-foreground">
+          Full-text search across every scanned page. Results are ranked by
+          relevance and open in the original.
+        </p>
+
+        <form onSubmit={submit} className="mt-5">
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-lg border bg-card px-3",
+              "transition-[border-color] duration-[120ms] ease-[var(--ease-crisp)]",
+              "focus-within:border-[var(--accent)]",
+            )}
+          >
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              placeholder="Search words or phrases…"
+              aria-label="Search the archive"
+              className={cn(
+                "min-h-[44px] flex-1 bg-transparent outline-none",
+                // 16px avoids iOS zoom-on-focus.
+                "text-base sm:text-[0.9375rem]",
+                "placeholder:text-muted-foreground",
+              )}
+            />
+          </div>
+        </form>
+
+        <div className="mt-6">
+          {status === "searching" && <SearchingNote />}
+          {status === "error" && <ErrorNote />}
+          {status === "idle" && <IdleNote />}
+          {status === "loaded" && results.length === 0 && (
+            <NoResultsNote term={submitted} />
+          )}
+
+          {status === "loaded" && results.length > 0 && (
+            <>
+              <p className="eyebrow mb-3">
+                {total} {total === 1 ? "passage" : "passages"} found
+              </p>
+              <ul className="flex flex-col">
+                {results.map((result) => (
+                  <ResultRow
+                    key={result.chunk_id}
+                    result={result}
+                    query={submitted}
+                    onOpen={setActive}
+                  />
+                ))}
+              </ul>
+
+              {hasMore && (
+                <button
+                  type="button"
+                  onClick={() => void runSearch(submitted, results.length)}
+                  disabled={isLoadingMore}
+                  className={cn(
+                    "mt-4 flex min-h-[44px] w-full items-center justify-center gap-2",
+                    "rounded-md border text-[0.8125rem] text-foreground",
+                    "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+                    "hover:bg-secondary disabled:opacity-60",
+                  )}
+                >
+                  {isLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isLoadingMore ? "Loading…" : "Load more"}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <SourceViewer
+        source={active ? toChatSource(active) : null}
+        passage={active?.content ?? null}
+        onOpenChange={(open) => {
+          if (!open) setActive(null);
+        }}
+      />
+    </div>
+  );
+}
+
+/** `SearchResult` is a superset of `ChatSource`; the viewer needs the latter. */
+function toChatSource(result: SearchResult): ChatSource {
+  return {
+    chunk_id: result.chunk_id,
+    page_id: result.page_id,
+    document_id: result.document_id,
+    page_number: result.page_number,
+    publication: result.publication,
+    issue_date: result.issue_date,
+  };
+}
+
+function ResultRow({
+  result,
+  query,
+  onOpen,
+}: {
+  result: SearchResult;
+  query: string;
+  onOpen: (result: SearchResult) => void;
+}) {
+  const date = formatIssueDateShort(result.issue_date);
+
+  return (
+    <li className="animate-rise">
+      <button
+        type="button"
+        onClick={() => onOpen(result)}
+        className={cn(
+          "rule-t w-full px-2 py-3.5 text-left",
+          "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+          "hover:bg-secondary",
+        )}
+      >
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="font-heading text-[0.9375rem] leading-snug text-foreground">
+            {result.publication ?? "Unidentified publication"}
+          </span>
+          {date && (
+            <time className="numeric text-[0.75rem] text-muted-foreground">
+              {date}
+            </time>
+          )}
+          <span className="numeric text-[0.75rem] text-muted-foreground">
+            · p. {result.page_number}
+          </span>
+        </div>
+        <p className="mt-1.5 line-clamp-3 text-[0.8125rem] leading-relaxed text-foreground/75">
+          <Snippet text={result.content} query={query} />
+        </p>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * A result snippet with query terms emphasised.
+ *
+ * Highlighting is client-side and approximate — it marks the query's own words
+ * where they appear literally. Postgres ranked the result by stemmed Spanish
+ * matching, so a stemmed hit may not be marked; the snippet is still correct,
+ * just less decorated.
+ */
+function Snippet({ text, query }: { text: string; query: string }) {
+  const terms = query
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length > 2);
+
+  if (terms.length === 0) return <>{text}</>;
+
+  const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  // The capture group makes split() interleave matches at odd indices, so
+  // parity alone identifies them — no stateful .test() calls needed.
+  const pattern = new RegExp(`(${escaped.join("|")})`, "gi");
+
+  return (
+    <>
+      {text.split(pattern).map((part, index) =>
+        index % 2 === 1 ? (
+          <mark
+            key={index}
+            className="rounded-[0.15rem] bg-[var(--accent-subtle)] px-0.5 text-foreground"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={index}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function IdleNote() {
+  return (
+    <p className="measure text-[0.875rem] leading-relaxed text-muted-foreground">
+      Search for a place, a ship, a merchant house, or a phrase as it would have
+      been printed. Spanish accents are handled for you.
+    </p>
+  );
+}
+
+function SearchingNote() {
+  return (
+    <p className="flex items-center gap-2 text-[0.875rem] text-muted-foreground">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      Searching…
+    </p>
+  );
+}
+
+function NoResultsNote({ term }: { term: string }) {
+  return (
+    <div className="measure">
+      <h2 className="font-heading text-[0.9375rem] text-foreground">
+        No passage matches “{term}”
+      </h2>
+      <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
+        Try a shorter phrase, a different spelling, or the Spanish form of the
+        word — these pages were printed in Spanish.
+      </p>
+    </div>
+  );
+}
+
+function ErrorNote() {
+  return (
+    <div className="measure">
+      <h2 className="font-heading text-[0.9375rem] text-foreground">
+        The search could not be completed
+      </h2>
+      <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
+        The archive service did not respond. Try again in a moment.
+      </p>
+    </div>
+  );
+}

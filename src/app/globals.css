@@ -4,6 +4,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ---------------------------------------------------------------------------
+   Anglophone Chile Archive — design language
+   Academic, editorial, newsprint. Warm bone/paper neutrals and ink near-blacks,
+   with a restrained purple used only as an accent (links, active states,
+   citation chips, focus rings) — never as a gradient wash.
+   Motion is short and decisive; grain is texture, not decoration.
+--------------------------------------------------------------------------- */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -38,92 +46,284 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+
+  /* Editorial rule weights — hairlines read as newsprint, not as UI chrome. */
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+
+  /* Radii stay tight. Editorial layouts use rules and spacing, not rounding. */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.5);
+  --radius-4xl: calc(var(--radius) * 3);
+
+  /* Motion — short, decisive, transform/opacity only. Nothing above 200ms. */
+  --ease-crisp: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Paper: warm bone, not white. Ink: near-black with a trace of warmth. */
+  --background: oklch(0.977 0.005 85);
+  --foreground: oklch(0.19 0.008 60);
+
+  --card: oklch(0.992 0.004 85);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.994 0.003 85);
+  --popover-foreground: var(--foreground);
+
+  /* Primary is ink — the archive's voice is typographic, not chromatic. */
+  --primary: oklch(0.22 0.01 60);
+  --primary-foreground: oklch(0.98 0.005 85);
+
+  --secondary: oklch(0.945 0.007 80);
+  --secondary-foreground: oklch(0.28 0.01 60);
+
+  --muted: oklch(0.948 0.006 80);
+  --muted-foreground: oklch(0.5 0.012 65);
+
+  /* The purple accent. Muted, academic — closer to iris than to violet. */
+  --accent: oklch(0.475 0.135 295);
+  --accent-foreground: oklch(0.985 0.004 85);
+  --accent-subtle: oklch(0.93 0.032 295);
+  --accent-muted: oklch(0.58 0.11 295);
+
+  --destructive: oklch(0.523 0.176 27);
+
+  --border: oklch(0.885 0.008 75);
+  --input: oklch(0.9 0.008 75);
+  --ring: oklch(0.475 0.135 295);
+
+  --rule: oklch(0.89 0.008 75);
+  --rule-strong: oklch(0.35 0.012 65);
+
+  --chart-1: oklch(0.475 0.135 295);
+  --chart-2: oklch(0.45 0.02 60);
+  --chart-3: oklch(0.6 0.09 295);
+  --chart-4: oklch(0.62 0.015 65);
+  --chart-5: oklch(0.75 0.012 70);
+
+  --radius: 0.375rem;
+
+  --sidebar: oklch(0.962 0.006 82);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: oklch(0.475 0.135 295);
+  --sidebar-primary-foreground: oklch(0.985 0.004 85);
+  --sidebar-accent: oklch(0.93 0.008 80);
+  --sidebar-accent-foreground: oklch(0.26 0.01 60);
+  --sidebar-border: oklch(0.885 0.008 75);
+  --sidebar-ring: oklch(0.475 0.135 295);
+
+  /* Grain: strength of the newsprint texture overlay. */
+  --grain-opacity: 0.055;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Night is ink-on-slate, still warm — never a pure neutral grey. */
+  --background: oklch(0.165 0.008 60);
+  --foreground: oklch(0.93 0.006 82);
+
+  --card: oklch(0.205 0.009 62);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.215 0.009 62);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.92 0.006 82);
+  --primary-foreground: oklch(0.19 0.008 60);
+
+  --secondary: oklch(0.255 0.01 62);
+  --secondary-foreground: oklch(0.92 0.006 82);
+
+  --muted: oklch(0.25 0.009 62);
+  --muted-foreground: oklch(0.68 0.012 72);
+
+  /* Accent lifts in dark so it stays legible against ink. */
+  --accent: oklch(0.7 0.13 296);
+  --accent-foreground: oklch(0.16 0.008 60);
+  --accent-subtle: oklch(0.3 0.055 295);
+  --accent-muted: oklch(0.62 0.11 295);
+
+  --destructive: oklch(0.65 0.17 25);
+
+  --border: oklch(0.98 0.004 85 / 11%);
+  --input: oklch(0.98 0.004 85 / 15%);
+  --ring: oklch(0.7 0.13 296);
+
+  --rule: oklch(0.98 0.004 85 / 12%);
+  --rule-strong: oklch(0.75 0.01 75);
+
+  --chart-1: oklch(0.7 0.13 296);
+  --chart-2: oklch(0.72 0.015 75);
+  --chart-3: oklch(0.58 0.1 295);
+  --chart-4: oklch(0.55 0.014 68);
+  --chart-5: oklch(0.4 0.012 64);
+
+  --sidebar: oklch(0.19 0.009 61);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: oklch(0.7 0.13 296);
+  --sidebar-primary-foreground: oklch(0.16 0.008 60);
+  --sidebar-accent: oklch(0.25 0.01 62);
+  --sidebar-accent-foreground: oklch(0.92 0.006 82);
+  --sidebar-border: oklch(0.98 0.004 85 / 11%);
+  --sidebar-ring: oklch(0.7 0.13 296);
+
+  --grain-opacity: 0.09;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    /* Never let a wide table or long token scroll the whole page sideways. */
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: hidden;
+    text-rendering: optimizeLegibility;
+    font-synthesis-weight: none;
+  }
+
+  /* Headings are Playfair — publication names, titles, section heads. */
+  h1,
+  h2,
+  h3 {
+    @apply font-heading;
+    letter-spacing: -0.011em;
+  }
+
+  /* Tabular figures for dates and page numbers so columns align. */
+  time,
+  .numeric {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  ::selection {
+    background: var(--accent-subtle);
+    color: var(--foreground);
+  }
+
+  /* Focus is the accent's job — visible, tight, never a fuzzy glow. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* ----- Grain -------------------------------------------------------------
+     Newsprint texture generated entirely in CSS (fractal noise as an inline
+     SVG data URI) — no image asset, no network cost. Fixed to the viewport so
+     it reads as paper stock rather than as a scrolling element. */
+  .grain::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+  }
+
+  /* Hairline rules — the editorial separator, thinner than a border. */
+  .rule-t {
+    border-top: 1px solid var(--rule);
+  }
+  .rule-b {
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* Small caps label: section eyebrows, metadata keys. */
+  .eyebrow {
+    font-size: 0.6875rem;
+    line-height: 1;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+
+  /* Reading measure for extracted newspaper text. */
+  .measure {
+    max-width: 68ch;
+  }
+
+  /* Safe-area padding for iOS home indicator / notch. */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+}
+
+/* ----- Motion --------------------------------------------------------------
+   Everything is short (120-180ms) and moves on transform/opacity only. */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Caret pulse for the streaming indicator — a typesetter's cursor. */
+@keyframes caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  95% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .animate-rise {
+    animation: rise 160ms var(--ease-crisp) both;
+  }
+  .animate-fade {
+    animation: fade 120ms var(--ease-crisp) both;
+  }
+  .animate-caret {
+    animation: caret 1s steps(1, end) infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -15,16 +15,52 @@
 - CI workflow (lint + tsc + build)
 - Live on Vercel with auto-deploy on push to main (Hobby, repo public)
 
+## Phase 1 — built this pass (2026-07-28)
+The whole public surface now exists and runs. Verified against a mock backend that
+speaks the real SSE protocol — tsc, eslint and `next build` all clean.
+
+- [x] Design system in `globals.css`: academic paper/ink palette (warm bone, not white),
+      purple as a *restrained accent only* — links, active states, chips, focus rings, never a
+      gradient. CSS-generated newsprint grain (no image asset). Motion tokens capped at 120-180ms.
+      Light + dark, `prefers-reduced-motion` honored.
+- [x] App shell: `h-dvh` + `overflow-hidden` so the shell owns scrolling and the composer
+      stays put when the mobile keyboard opens. Sticky header, safe-area padding, inline nav
+      (two destinations don't justify a hamburger).
+- [x] Chat UI end-to-end: streaming answer, "Searching the archive…" retrieval state, caret
+      indicator, transcript that follows the stream but stops the moment you scroll up to read.
+- [x] Citation chips: `[CITE:id]` parsed into tappable chips, repeats share an ordinal, unknown
+      ids dropped rather than rendered dead. Partial markers hidden mid-stream so you never see
+      `[CITE:8f2` flicker. ~44px tap targets via pseudo-element (doesn't break the line box).
+- [x] Source viewer: bottom sheet on mobile, right panel from `sm` — same component, so the
+      two can't drift. Text default, exact-substring passage highlight + scroll-to.
+- [x] Archive browser: full-text search, ranked results with publication/date/snippet,
+      query-term highlighting, load-more pagination.
+- [x] Route Handlers proxying FastAPI: `/api/chat` is a byte-level SSE passthrough (verified
+      incremental, not buffered), plus `/api/search`, `/api/pages/[id]`, `/api/pages/[id]/image`.
+      The bare-IP Oracle origin never reaches the browser.
+- [x] Real archive copy throughout — empty states, no-match, error states. No lorem ipsum.
+
+**Decision (2026-07-28): dropped `useChat` for a custom `useArchiveChat` hook.** The backend
+speaks its own SSE protocol where `sources` arrives as a first-class event *before* any text.
+Bending that into the AI SDK's wire format meant smuggling citations through data parts and
+maintaining a protocol shim on every request. Reading the stream directly keeps sources
+first-class, which is exactly what the chips need. `ai`/`@ai-sdk/*` stay in package.json —
+harmless, and Phase 2 may want them.
+
 ## Phase 1 — remaining
-- [ ] Mobile-first layout (375px first): sidebar + main panel shell
-- [ ] Public chatbot UI: `useChat` streaming, typing indicator, citation chips (tappable on mobile)
-- [ ] Citation chip → opens document viewer at correct page, highlighted
-- [ ] Document viewer (react-pdf) with citation highlight overlays; text-by-default on mobile, image on tap
-- [ ] Archive browser: search + filter by date/publication, results show publication name + date + snippet
-- [ ] Route Handlers proxying to FastAPI backend (Oracle IP / eventual domain)
-- [ ] Cloudflare Turnstile widget on chat input (invisible)
-- [ ] Realistic newspaper-archive copy for empty states (no lorem ipsum)
-- [ ] Wire NEXT_PUBLIC_ backend URL env var in Vercel once backend is publicly reachable
+- [ ] **Not verified against the real backend yet.** Everything above ran against a mock that
+      emits the true SSE protocol; the live path needs `BACKEND_API_URL` pointing at Oracle and
+      real ingested chunks. Expect the first real run to surface prompt/marker quirks the mock
+      can't (the model inventing chunk ids, markers landing mid-word).
+- [ ] Set `BACKEND_API_URL` in Vercel (server-side env var, deliberately not `NEXT_PUBLIC_` —
+      the origin must stay off the client) once the backend is reachable from Vercel.
+- [ ] Date/publication filters on the archive browser — the backend `/search` doesn't accept
+      those params yet, so it's a two-repo change, not frontend-only.
+- [ ] react-pdf viewer: currently the viewer shows extracted text + scan image. Nothing renders
+      actual PDFs, and per the ingestion contract PDFs never reach the server — so this item
+      may simply be wrong. Revisit after the OCR pilot shows what the images actually look like.
+- [ ] Cloudflare Turnstile widget on chat input — blocked, no Cloudflare (see `infra/plans.md`).
+- [ ] Empty/error states exist but haven't been seen on a real slow connection or a real 502.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
