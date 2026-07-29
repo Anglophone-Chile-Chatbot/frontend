@@ -232,7 +232,7 @@ function ResultRow({
  * A result snippet with query terms emphasised.
  *
  * Highlighting is client-side and approximate — it marks the query's own words
- * where they appear literally. Postgres ranked the result by stemmed Spanish
+ * where they appear literally. Postgres ranked the result by stemmed English
  * matching, so a stemmed hit may not be marked; the snippet is still correct,
  * just less decorated.
  */
@@ -271,7 +271,7 @@ function IdleNote() {
   return (
     <p className="measure text-[0.875rem] leading-relaxed text-muted-foreground">
       Search for a place, a ship, a merchant house, or a phrase as it would have
-      been printed. Spanish accents are handled for you.
+      been printed. Accents are optional — “Valparaiso” finds “Valparaíso”.
     </p>
   );
 }
@@ -292,8 +292,8 @@ function NoResultsNote({ term }: { term: string }) {
         No passage matches “{term}”
       </h2>
       <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
-        Try a shorter phrase, a different spelling, or the Spanish form of the
-        word — these pages were printed in Spanish.
+        Try a shorter phrase or a period spelling — these pages were set in
+        nineteenth-century type, and names were often printed differently.
       </p>
     </div>
   );
