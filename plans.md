@@ -48,12 +48,24 @@ first-class, which is exactly what the chips need. `ai`/`@ai-sdk/*` stay in pack
 harmless, and Phase 2 may want them.
 
 ## Phase 1 — remaining
-- [ ] **Not verified against the real backend yet.** Everything above ran against a mock that
-      emits the true SSE protocol; the live path needs `BACKEND_API_URL` pointing at Oracle and
-      real ingested chunks. Expect the first real run to surface prompt/marker quirks the mock
-      can't (the model inventing chunk ids, markers landing mid-word).
-- [ ] Set `BACKEND_API_URL` in Vercel (server-side env var, deliberately not `NEXT_PUBLIC_` —
-      the origin must stay off the client) once the backend is reachable from Vercel.
+- [x] **Verified against the real backend (2026-07-29).** Ran the built frontend with
+      `BACKEND_API_URL=http://129.80.3.40/api/v1`: `/api/search` proxied through to Oracle and
+      returned a valid empty result; `/api/chat` streamed real SSE frames (sources → delta → done)
+      from the live FastAPI. Both pages rendered. So the proxy layer is proven against reality, not
+      just the mock.
+      Still unexercised: the *populated* path. Every citation feature — chips, ordinals,
+      viewer highlight — has only ever seen mock chunks. Expect the first real run to surface
+      quirks the mock can't (model inventing chunk ids, markers landing mid-word, OCR text that
+      doesn't substring-match the stored chunk so the viewer highlight silently misses).
+- [ ] **THE ONE THING blocking a public URL: set `BACKEND_API_URL` in Vercel** →
+      `http://129.80.3.40/api/v1`, Production scope, then redeploy.
+      Deliberately **not** `NEXT_PUBLIC_` — that would ship the origin IP to the browser; the whole
+      point of the Route Handler layer is that only the server knows it.
+      Two things to expect and not panic about: (a) every question will answer "nothing in the
+      archive" until the OCR pilot lands data — correct behaviour, empty DB; (b) Vercel is HTTPS
+      and Oracle is plain HTTP, but that's a *server-to-server* call, so no browser mixed-content
+      warning. It works. It's just not encrypted origin-side, which is the accepted Phase 1
+      trade-off from the no-domain/no-Cloudflare decision.
 - [ ] Date/publication filters on the archive browser — the backend `/search` doesn't accept
       those params yet, so it's a two-repo change, not frontend-only.
 - [ ] react-pdf viewer: currently the viewer shows extracted text + scan image. Nothing renders
