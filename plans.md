@@ -74,6 +74,15 @@ harmless, and Phase 2 may want them.
 - [ ] Cloudflare Turnstile widget on chat input — blocked, no Cloudflare (see `infra/plans.md`).
 - [ ] Empty/error states exist but haven't been seen on a real slow connection or a real 502.
 
+## Phase 1 addition (confirmed 2026-08-08) — Document-scoped chat
+- [ ] Document picker UI: pin the chat to one document (or a subset) so questions are answered only
+      from it, as a mode alongside today's corpus-wide chat — not a replacement. Depends on the
+      backend accepting a `document_id` filter on chat retrieval (see `backend/plans.md`).
+
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
+- [ ] Cross-document pattern discovery UI (confirmed 2026-08-08) — surfaces connections/patterns
+      found across multiple documents once the backend's cross-document feature (see
+      `backend/plans.md` Phase 2+) exists. Dedicated feature, not just multi-doc citations in one
+      answer.
 - [ ] NextAuth v5 activation (Phase 3, currently dormant shell only)
