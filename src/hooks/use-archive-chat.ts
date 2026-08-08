@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { SseParser } from "@/lib/api/sse";
-import type { ChatSource } from "@/lib/api/types";
+import type { ChatRequestBody, ChatSource } from "@/lib/api/types";
 
 /**
  * Chat state driven by the backend's own SSE protocol.
@@ -20,6 +20,17 @@ import type { ChatSource } from "@/lib/api/types";
  * upstream. Turns are kept in memory only so the transcript renders.
  */
 
+/**
+ * The document scope a turn was asked under.
+ *
+ * `null` is corpus-wide. Otherwise the chosen documents, carried as titles
+ * alongside ids so the transcript can name the scope without a second lookup.
+ */
+export interface ChatScope {
+  ids: string[];
+  labels: string[];
+}
+
 export interface ChatTurn {
   id: string;
   question: string;
@@ -30,13 +41,23 @@ export interface ChatTurn {
   status: "retrieving" | "streaming" | "complete" | "error";
   /** User-facing error copy, set only when `status === "error"`. */
   error?: string;
+  /**
+   * Scope this turn was asked under; `null` for corpus-wide.
+   *
+   * Recorded per turn rather than read from current state at render time: the
+   * scope can be changed after a turn completes, and a transcript that
+   * relabelled old answers to match the *current* scope would be lying about
+   * where those answers came from.
+   */
+  scope: ChatScope | null;
 }
 
 export interface UseArchiveChat {
   turns: ChatTurn[];
   /** True from submit until the stream terminates. */
   isBusy: boolean;
-  ask: (question: string) => Promise<void>;
+  /** Ask a question, optionally scoped to chosen documents. */
+  ask: (question: string, scope?: ChatScope | null) => Promise<void>;
   stop: () => void;
   reset: () => void;
 }
@@ -48,6 +69,8 @@ const ERROR_COPY: Record<string, string> = {
     "The archive service is unreachable right now. Try again in a moment.",
   BACKEND_ERROR: "The archive could not answer that question.",
   MESSAGE_TOO_LONG: "That question is too long. Shorten it and try again.",
+  SCOPE_INVALID:
+    "That document selection is no longer valid. Clear it and choose again.",
 };
 
 export function useArchiveChat(): UseArchiveChat {
@@ -63,7 +86,7 @@ export function useArchiveChat(): UseArchiveChat {
   }, []);
 
   const ask = useCallback(
-    async (question: string) => {
+    async (question: string, scope: ChatScope | null = null) => {
       const trimmed = question.trim();
       if (trimmed.length === 0 || abortRef.current) return;
 
@@ -74,7 +97,14 @@ export function useArchiveChat(): UseArchiveChat {
 
       setTurns((current) => [
         ...current,
-        { id, question: trimmed, answer: "", sources: [], status: "retrieving" },
+        {
+          id,
+          question: trimmed,
+          answer: "",
+          sources: [],
+          status: "retrieving",
+          scope,
+        },
       ]);
       setIsBusy(true);
 
@@ -82,10 +112,15 @@ export function useArchiveChat(): UseArchiveChat {
       abortRef.current = controller;
 
       try {
+        // The key is omitted entirely when unscoped, so a corpus-wide request
+        // is byte-identical to what it was before scoping existed.
+        const payload: ChatRequestBody = { message: trimmed };
+        if (scope) payload.document_ids = scope.ids;
+
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: trimmed }),
+          body: JSON.stringify(payload),
           signal: controller.signal,
         });
 

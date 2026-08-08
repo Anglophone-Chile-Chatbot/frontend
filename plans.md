@@ -75,9 +75,40 @@ harmless, and Phase 2 may want them.
 - [ ] Empty/error states exist but haven't been seen on a real slow connection or a real 502.
 
 ## Phase 1 addition (confirmed 2026-08-08) — Document-scoped chat
-- [ ] Document picker UI: pin the chat to one document (or a subset) so questions are answered only
-      from it, as a mode alongside today's corpus-wide chat — not a replacement. Depends on the
-      backend accepting a `document_id` filter on chat retrieval (see `backend/plans.md`).
+- [x] **Built 2026-08-08.** tsc, eslint and `next build` all clean. Three new pieces:
+      `scope-picker.tsx` (the document list), `scope-bar.tsx` (the always-visible scope control), and
+      an `/api/documents` Route Handler proxying the new backend endpoint the same way `/api/search`
+      does — bounds checked here, origin IP never leaves the server.
+      **Picker follows the `SourceViewer` precedent rather than inventing a third pattern:** bottom
+      sheet on mobile, right panel from `sm`. A persistent sidebar was considered and rejected — the
+      shell is `h-dvh` + `overflow-hidden` so the composer survives the mobile keyboard, and a third
+      column would either break that or become a desktop-only affordance, which the mobile-first rule
+      forbids outright.
+      **The scope bar sits above the composer and is always visible**, stating the scope in words
+      ("Asking within *El Mercurio, 12 Mar 1853*" / "Asking the whole archive · pick a document").
+      That's what makes the mode discoverable without a tooltip or a tour — and "which pages can this
+      answer draw from" is the single most consequential fact about a research assistant's reply, so
+      it shouldn't be hidden behind an icon whose meaning has to be guessed. It disables while a turn
+      streams: the answer in flight was already retrieved under the old scope.
+      **Scope is stamped on each turn, not read from current state at render.** A reader can change
+      scope between questions, and a transcript that relabelled old answers to match the *current*
+      scope would be lying about where those answers came from. Same reasoning drives the two
+      no-match messages — "nothing in the archive" is false when only one document was searched.
+      Composer gave up its own `rule-t`/background to the wrapper so the bar and input read as one
+      region instead of showing a seam.
+      Empty state gained an "Ask within a single issue" entry, phrased as a capability rather than a
+      promise about content — nothing is ingested yet, and the picker says so plainly when opened
+      ("No documents in the archive yet"). A document with `page_count: 0` is labelled "no text yet"
+      rather than being silently offered as if it could answer something.
+      Verified inline: the request-body branch logic across all id cases (absent / null / `[]` /
+      valid / malformed / over-cap). **The unscoped body is byte-identical to what it was before this
+      change** — `{"message": "..."}`, key omitted entirely — so corpus-wide chat is provably
+      untouched.
+      **Unverified against real documents.** The picker has never rendered a row, the scope bar has
+      never named a real issue, and no scoped answer has ever been generated, because the DB is
+      empty. Expect the first populated run to surface the usual things a mock can't: titles far
+      longer than the truncation assumes, and issues whose `publication` is null so the row falls
+      back to `title`.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer

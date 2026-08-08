@@ -1,5 +1,7 @@
 "use client";
 
+import { Library } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,6 +13,11 @@ import { cn } from "@/lib/utils";
  *
  * The prompts are real research questions about 19th-century Chilean
  * newspapers, not filler.
+ *
+ * Document scope is introduced here as a second way in, phrased as a capability
+ * ("narrow to a single issue") rather than a promise about what the archive
+ * currently contains — nothing has been ingested yet, and the picker itself
+ * says so honestly when opened.
  */
 
 const STARTERS = [
@@ -20,7 +27,13 @@ const STARTERS = [
   "What shipping news appears in these issues?",
 ] as const;
 
-export function ChatEmptyState({ onPick }: { onPick: (question: string) => void }) {
+export function ChatEmptyState({
+  onPick,
+  onBrowse,
+}: {
+  onPick: (question: string) => void;
+  onBrowse: () => void;
+}) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
       <p className="eyebrow">The Anglophone Chile Archive</p>
@@ -67,6 +80,29 @@ export function ChatEmptyState({ onPick }: { onPick: (question: string) => void 
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="rule-t mt-8 pt-4">
+        <button
+          type="button"
+          onClick={onBrowse}
+          className={cn(
+            "group flex min-h-[44px] w-full items-center gap-3 rounded-md px-2 py-2",
+            "text-left transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+            "hover:bg-secondary",
+          )}
+        >
+          <Library className="h-4 w-4 shrink-0 text-muted-foreground transition-colors duration-[120ms] group-hover:text-[var(--accent)]" />
+          <span className="min-w-0">
+            <span className="block text-[0.875rem] leading-snug text-foreground/85">
+              Ask within a single issue
+            </span>
+            <span className="mt-0.5 block text-[0.75rem] leading-snug text-muted-foreground">
+              Pin the assistant to one document so it answers only from those
+              pages.
+            </span>
+          </span>
+        </button>
       </div>
     </div>
   );

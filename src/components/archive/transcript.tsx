@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Library } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import type { ChatSource } from "@/lib/api/types";
@@ -86,11 +86,16 @@ function TurnBlock({
 }) {
   return (
     <div className="animate-rise flex flex-col gap-3">
-      <h2 className="font-heading text-[1.0625rem] leading-snug text-foreground sm:text-[1.125rem]">
-        {turn.question}
-      </h2>
+      <div className="flex flex-col gap-1.5">
+        <h2 className="font-heading text-[1.0625rem] leading-snug text-foreground sm:text-[1.125rem]">
+          {turn.question}
+        </h2>
+        {/* Scope is stamped on the turn, not read from current state, so an
+            answer stays labelled with the scope it was actually asked under. */}
+        {turn.scope && <ScopeMark labels={turn.scope.labels} />}
+      </div>
 
-      {turn.status === "retrieving" && <RetrievingNote />}
+      {turn.status === "retrieving" && <RetrievingNote scoped={turn.scope !== null} />}
 
       {turn.status === "error" ? (
         <p className="flex items-start gap-2 text-[0.875rem] leading-relaxed text-destructive">
@@ -111,7 +116,7 @@ function TurnBlock({
 
       {turn.status === "complete" &&
         turn.answer.length === 0 &&
-        turn.sources.length === 0 && <NoMatchNote />}
+        turn.sources.length === 0 && <NoMatchNote scoped={turn.scope !== null} />}
 
       {turn.sources.length > 0 && turn.status !== "error" && (
         <SourceList
@@ -124,8 +129,27 @@ function TurnBlock({
   );
 }
 
+/**
+ * Which documents this turn was confined to.
+ *
+ * A quiet label rather than a chip row: it is provenance, not a control, and
+ * the transcript's job is the answer. One document is named; several are
+ * counted, so the line cannot wrap away the answer on a 375px screen.
+ */
+function ScopeMark({ labels }: { labels: string[] }) {
+  const text =
+    labels.length === 1 ? labels[0] : `${labels.length} selected documents`;
+
+  return (
+    <p className="flex items-center gap-1.5 text-[0.75rem] leading-tight text-muted-foreground">
+      <Library className="h-3 w-3 shrink-0 text-[var(--accent)]" />
+      <span className="min-w-0 truncate">Within {text}</span>
+    </p>
+  );
+}
+
 /** Shown between submit and the first token — the retrieval step. */
-function RetrievingNote() {
+function RetrievingNote({ scoped }: { scoped: boolean }) {
   return (
     <p className="flex items-center gap-2 text-[0.8125rem] text-muted-foreground">
       <span className="flex gap-1" aria-hidden>
@@ -133,7 +157,7 @@ function RetrievingNote() {
         <Dot delay="120ms" />
         <Dot delay="240ms" />
       </span>
-      Searching the archive…
+      {scoped ? "Searching the selected pages…" : "Searching the archive…"}
     </p>
   );
 }
@@ -147,12 +171,15 @@ function Dot({ delay }: { delay: string }) {
   );
 }
 
-function NoMatchNote() {
+function NoMatchNote({ scoped }: { scoped: boolean }) {
+  // Distinguishing the two is the point: "nothing in the archive" would be a
+  // false statement when only one document was actually searched, and it hides
+  // the fix, which is to widen the scope.
   return (
     <p className="measure text-[0.875rem] leading-relaxed text-muted-foreground">
-      Nothing in the archive matches that question yet. Try naming a place, a
-      publication, or a year — the collection is Chilean newspapers of the
-      1800s.
+      {scoped
+        ? "Nothing in the selected documents matches that question. Try different terms, or clear the scope to search the whole archive."
+        : "Nothing in the archive matches that question yet. Try naming a place, a publication, or a year — the collection is Chilean newspapers of the 1800s."}
     </p>
   );
 }

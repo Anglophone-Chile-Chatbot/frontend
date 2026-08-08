@@ -64,9 +64,11 @@ export function Composer({
     setValue("");
   }
 
+  // The surrounding bar owns the top rule, background and blur, so the scope
+  // control and the input stack as one region rather than showing a seam.
   return (
-    <div className="rule-t bg-background/95 pb-safe supports-[backdrop-filter]:backdrop-blur-sm">
-      <div className="mx-auto w-full max-w-3xl px-3 py-3 sm:px-4">
+    <div className="pb-safe">
+      <div className="mx-auto w-full max-w-3xl px-3 pt-2 pb-3 sm:px-4">
         <div
           className={cn(
             "flex items-end gap-2 rounded-lg border bg-card p-2",
