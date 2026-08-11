@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Anglophone Chile Chatbot — Frontend
 
-## Getting Started
+Public research archive and RAG chatbot for ~5,000 scanned 1800s Chilean English-language
+newspaper pages. This repo is the Next.js frontend: chat interface, full-text archive search, and
+document viewer. It talks to a FastAPI backend ([`backend`](https://github.com/Anglophone-Chile-Chatbot/backend))
+running on a self-hosted Postgres + Gemini RAG pipeline.
 
-First, run the development server:
+Built for a professor and research assistants studying 19th-century English-language press in Chile.
+
+## What's here
+
+- **Chat** — ask questions across the archive (or scoped to a single document), streamed live
+  from the backend with tappable citation chips linking back to source pages.
+- **Archive search** — full-text search over the corpus, ranked results with publication, date,
+  and snippet.
+- **Document viewer** — read extracted page text or view the original scan, with cited passages
+  highlighted and scrolled to automatically.
+
+## Stack
+
+- [Next.js 16](https://nextjs.org) (App Router) + TypeScript
+- [shadcn/ui](https://ui.shadcn.com) + Tailwind CSS v4
+- Custom SSE chat hook (`useArchiveChat`) reading the backend's own citation-first stream protocol
+  directly, rather than bending it into a generic chat SDK's wire format
+- [Motion](https://motion.dev) for interface animation
+- Playfair Display (headings) + Inter (body) via `next/font`
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The dev server is pinned to **port 3417** (not 3000) — open [http://localhost:3417](http://localhost:3417).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Set `BACKEND_API_URL` in a local `.env` to point Route Handlers at a running FastAPI backend. Route
+Handlers proxy every backend call — `/api/chat`, `/api/search`, `/api/pages/[id]` — so the backend
+origin is never exposed to the browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Status
 
-## Learn More
+Phase 1 (public chatbot, full-text search, document viewer) is functionally complete and verified
+against the live backend: `/api/chat` streams real Server-Sent Events end-to-end, `/api/search`
+proxies real Postgres full-text queries. The corpus itself is still being populated via a separate
+OCR pipeline, so the archive is currently near-empty — the plumbing works, the content is still
+being added.
 
-To learn more about Next.js, take a look at the following resources:
+Live deployment: [frontend-gamma-dun-82.vercel.app](https://frontend-gamma-dun-82.vercel.app)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deployed on [Vercel](https://vercel.com), auto-deploying `main` on push.
