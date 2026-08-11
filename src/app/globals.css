@@ -204,12 +204,24 @@
     font-synthesis-weight: none;
   }
 
-  /* Headings are Playfair — publication names, titles, section heads. */
+  /* Headings are Playfair — publication names, titles, section heads.
+     Weight 600 is load-bearing: at the default 400, Playfair's contrast
+     barely reads and it looks like a generic system serif (Georgia/Times)
+     instead of a display face. Covers both real heading elements and the
+     `.font-heading` utility used on spans/paragraphs styled as headings
+     (wordmark, publication names, source titles). */
+  h1,
+  h2,
+  h3,
+  .font-heading {
+    font-weight: 600;
+    letter-spacing: -0.011em;
+  }
+
   h1,
   h2,
   h3 {
     @apply font-heading;
-    letter-spacing: -0.011em;
   }
 
   /* Tabular figures for dates and page numbers so columns align. */

@@ -77,15 +77,19 @@ harmless, and Phase 2 may want them.
       last deploy before this was `081ef66` (the document-scoped chat commit), status Ready.
       This had gone unverified for weeks; local `.vercel/project.json` (filesystem timestamp
       2026-07-15) was the only proof until Shakib screenshotted the dashboard directly.
-- [ ] **THE ONE THING blocking a public URL: set `BACKEND_API_URL` in Vercel** →
-      `http://129.80.3.40/api/v1`, Production scope, then redeploy.
-      Deliberately **not** `NEXT_PUBLIC_` — that would ship the origin IP to the browser; the whole
-      point of the Route Handler layer is that only the server knows it.
-      Two things to expect and not panic about: (a) every question will answer "nothing in the
-      archive" until the OCR pilot lands data — correct behaviour, empty DB; (b) Vercel is HTTPS
-      and Oracle is plain HTTP, but that's a *server-to-server* call, so no browser mixed-content
-      warning. It works. It's just not encrypted origin-side, which is the accepted Phase 1
-      trade-off from the no-domain/no-Cloudflare decision.
+- [x] **Local `BACKEND_API_URL` set (2026-08-11).** `frontend/.env.local` had no `BACKEND_API_URL` at
+      all — every Route Handler call was throwing (`BACKEND_API_URL is not set`), caught, and
+      rendered as ordinary empty state, which is why local dev looked identically "empty" everywhere
+      and was hard to distinguish from a real design problem. Added
+      `BACKEND_API_URL="http://129.80.3.40/api/v1"` to `.env.local`; `/api/documents` now returns a
+      real `200 {"total":0,"results":[]}` instead of a 500. Deliberately **not** `NEXT_PUBLIC_` — only
+      the server should know the origin IP.
+- [ ] **Still open: same var in Vercel.** Production scope, `http://129.80.3.40/api/v1`, then
+      redeploy — unverified whether it's already set there. Vercel is HTTPS and Oracle is plain HTTP,
+      but that's a *server-to-server* call, so no browser mixed-content warning; it's just not
+      encrypted origin-side, the accepted Phase 1 trade-off from the no-domain/no-Cloudflare decision.
+      Every question will keep answering "nothing in the archive" until the OCR pilot below lands
+      real rows — that's correct behaviour against an empty DB, not a bug.
 - [ ] Date/publication filters on the archive browser — the backend `/search` doesn't accept
       those params yet, so it's a two-repo change, not frontend-only.
 - [ ] react-pdf viewer: currently the viewer shows extracted text + scan image. Nothing renders
@@ -190,6 +194,23 @@ genuinely proven; the populated one is not.
 
 - [ ] Header wordmark centres on the full viewport while content centres within the chat column, so
       it sits slightly off-axis next to the rail. Cosmetic, noticed 2026-08-11, not yet fixed.
+- [x] **Playfair headings had no font-weight, so they rendered as a generic system serif
+      (2026-08-11).** The `h1,h2,h3 { @apply font-heading }` rule in `globals.css` never set
+      `font-weight`, and several components style spans/paragraphs as headings via the
+      `.font-heading` utility directly (wordmark in `site-header.tsx`, publication names, source
+      titles) — none of those picked up any weight either. At the browser default, Playfair's
+      contrast barely reads and it looks like Georgia/Times, which is what made the live site look
+      nothing like the approved mockup even though the same font file was loading correctly (verified
+      the woff2 itself was served fine — this was a CSS-weight bug, not a font-loading bug). Fixed by
+      adding `font-weight: 600` to `h1, h2, h3, .font-heading` as one rule in `globals.css`'s base
+      layer, so both real heading elements and the utility class are covered without touching every
+      call site individually.
+
+## Local dev port — fixed at 3417 (2026-08-11)
+`package.json`'s `dev`/`start` scripts now pin `next dev -p 3417` / `next start -p 3417` — see the
+hard rule in root `CLAUDE.md` and the Antigravity mirror. Shakib runs multiple unrelated projects on
+this Mac; the default 3000/3001 collided with something else and made a correctly-updated build look
+stale. Always check local UI at `http://localhost:3417`, never bare `localhost:3000`.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
