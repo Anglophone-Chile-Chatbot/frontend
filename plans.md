@@ -57,6 +57,12 @@ harmless, and Phase 2 may want them.
       viewer highlight — has only ever seen mock chunks. Expect the first real run to surface
       quirks the mock can't (model inventing chunk ids, markers landing mid-word, OCR text that
       doesn't substring-match the stored chunk so the viewer highlight silently misses).
+- [x] **Vercel project confirmed real (2026-08-11).** Live at
+      `vercel.com/khandokar-shakibs-projects/frontend`, org `team_4g2iLkOnKTKR2R7quL1cwne4`,
+      project `prj_MM8t8QobAWJnuDba9CmZ9tvW6w92`. GitHub-connected, auto-deploys `main` on push —
+      last deploy before this was `081ef66` (the document-scoped chat commit), status Ready.
+      This had gone unverified for weeks; local `.vercel/project.json` (filesystem timestamp
+      2026-07-15) was the only proof until Shakib screenshotted the dashboard directly.
 - [ ] **THE ONE THING blocking a public URL: set `BACKEND_API_URL` in Vercel** →
       `http://129.80.3.40/api/v1`, Production scope, then redeploy.
       Deliberately **not** `NEXT_PUBLIC_` — that would ship the origin IP to the browser; the whole
@@ -109,6 +115,44 @@ harmless, and Phase 2 may want them.
       empty. Expect the first populated run to surface the usual things a mock can't: titles far
       longer than the truncation assumes, and issues whose `publication` is null so the row falls
       back to `title`.
+
+## Phase 1 — visual redesign (confirmed 2026-08-11, not started)
+**Trigger:** first live look at the deployed site (`frontend-gamma-dun-82.vercel.app`) after the
+backend was wired up. Functionally correct (Route Handler → Oracle → clean empty-archive answer,
+proven live) but the visuals were rejected outright. This is a design-only redo — no proxy, hook,
+streaming, or citation-parsing logic changes. Everything in "Phase 1 — built this pass (2026-07-28)"
+stays; only the look changes.
+
+**What's wrong, specifically:**
+- [ ] Reads as flat dark-mode-default, not an academic paper archive — the warm bone/ink palette and
+      purple accent exist in `globals.css` but don't read as intentional live, especially with nothing
+      populated yet to carry the accent (no chips, no visible active state at rest).
+- [ ] CSS-generated newsprint grain is present in code but not visually landing — not reading as
+      texture on the live page.
+- [ ] Playfair Display on user-typed chat content (e.g. the question itself rendered in Playfair)
+      reads as a mismatch — a headline/display font applied somewhere it shouldn't be. Reconsider
+      where display serif is used (page titles, section headers) vs. body/chat content, which should
+      probably be a serif built for long-form reading rather than a display face — something in the
+      Latin/text-serif family (e.g. Source Serif, Lora, PT Serif, Libre Caslon Text) rather than
+      Playfair, which is a display face. Needs a real type audit, not a guess — pick per-context, not
+      one font doing every job.
+- [ ] Doesn't read as a chat product at all — no message-turn structure (bubbles, alignment, avatar,
+      or visual distinction between question and answer), just two stacked paragraphs. Compare
+      structurally to ChatGPT/Claude's turn layout (not their visual style — this project's own
+      academic/editorial direction stays) for what makes a transcript scannable as a conversation:
+      clear per-turn boundaries, consistent question/answer visual roles, breathing room between turns.
+- [ ] General ask: full visual pass across Ask (chat) and Archive (search) — this screenshot only
+      shows Ask, Archive needs the same scrutiny once Ask is settled.
+
+**Explicitly not in scope for this redesign pass:** SSE/streaming logic, `useArchiveChat` hook,
+citation chip parsing/ordinal logic, Route Handlers, document-scoped chat mode, search
+ranking/pagination. Those are proven working against the real backend and are not to be touched —
+this is CSS/component-markup/typography/layout only, plus whatever `globals.css` tokens need to
+change to support it.
+
+**Process for next session:** design-only exploration first — proposed direction(s) should be
+reviewed and confirmed before any component code changes, given how strongly the current visual
+direction was rejected. Don't rebuild silently and present a finished result.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
