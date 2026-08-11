@@ -4,6 +4,7 @@ import { FileText, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
 import type { PageDetail } from "@/lib/api/types";
+import { parsePageBlocks, type PageBlock } from "@/lib/page-blocks";
 import { cn } from "@/lib/utils";
 
 /**
@@ -98,34 +99,40 @@ function ViewerTabs({
 }
 
 /**
- * Page text with the cited passage highlighted and scrolled to.
+ * Page text, rendered as a newspaper page rather than as a raw string.
+ *
+ * `pages.raw_text` is markdown produced by the ingest pipeline. This used to be
+ * printed verbatim under `whitespace-pre-wrap`, which surfaced literal `###`
+ * markers and turned every paragraph break into a visible blank line — it read
+ * as a text dump, not a digitised page. `parsePageBlocks` recovers the heading
+ * and paragraph structure so it can be typeset properly.
  *
  * Matching is exact-substring first. OCR text and the stored chunk come from
  * the same extraction, so an exact match is the common case; when it fails
  * (the chunk spans a page break, or was normalized) the text still renders,
  * just without a highlight. Nothing is faked.
+ *
+ * The highlight works on offsets into the *raw* string, and blocks carry their
+ * source ranges, so structure and highlighting are derived from one source of
+ * truth and cannot drift apart.
  */
 function PageText({ text, passage }: { text: string | null; passage: string | null }) {
   const markRef = useRef<HTMLElement>(null);
 
-  const parts = useMemo(() => {
-    if (!text) return null;
-    if (!passage) return { before: text, match: "", after: "" };
+  const blocks = useMemo(() => parsePageBlocks(text), [text]);
 
+  // The cited passage as a range in the raw text; null when absent or unmatched.
+  const range = useMemo(() => {
+    if (!text || !passage) return null;
     const needle = passage.trim();
-    const index = needle.length > 0 ? text.indexOf(needle) : -1;
-    if (index === -1) return { before: text, match: "", after: "" };
-
-    return {
-      before: text.slice(0, index),
-      match: text.slice(index, index + needle.length),
-      after: text.slice(index + needle.length),
-    };
+    if (!needle) return null;
+    const index = text.indexOf(needle);
+    return index === -1 ? null : { start: index, end: index + needle.length };
   }, [text, passage]);
 
   useEffect(() => {
     markRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
-  }, [parts]);
+  }, [range, blocks]);
 
   if (!text || text.trim().length === 0) {
     return (
@@ -137,18 +144,80 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
   }
 
   return (
-    <article className="font-text-serif measure pt-4 text-[0.9375rem] leading-[1.7] whitespace-pre-wrap text-foreground/90">
-      {parts?.before}
-      {parts?.match && (
-        <mark
-          ref={markRef}
-          className="rounded-[0.2rem] bg-[var(--accent-subtle)] px-0.5 text-foreground"
-        >
-          {parts.match}
-        </mark>
-      )}
-      {parts?.after}
+    <article className="font-text-serif measure pt-4 text-[0.9375rem] leading-[1.7] text-foreground/90">
+      {blocks.map((block, index) => {
+        const key = `${block.start}-${index}`;
+
+        if (block.kind === "heading") {
+          // Heading levels are collapsed to two visual tiers. The OCR tree's
+          // depth reflects typographic size on the page, not a document
+          // outline, and on an advertisement-heavy page it swings between h1
+          // and h4 for what are all just advertiser names. Two tiers keep the
+          // page scannable without implying a hierarchy the paper never had.
+          return (
+            <h3
+              key={key}
+              className={cn(
+                "font-heading mt-5 mb-1.5 leading-snug text-foreground first:mt-0",
+                block.level <= 2 ? "text-[1.0625rem]" : "text-[0.9375rem]",
+              )}
+            >
+              <Highlighted block={block} range={range} markRef={markRef} />
+            </h3>
+          );
+        }
+
+        return (
+          <p key={key} className="mb-3 last:mb-0">
+            <Highlighted block={block} range={range} markRef={markRef} />
+          </p>
+        );
+      })}
     </article>
+  );
+}
+
+/**
+ * One block's text, with the cited passage marked where it overlaps.
+ *
+ * The citation range is expressed in raw-text offsets and a passage can span
+ * several blocks, so each block renders the intersection of its own range with
+ * the citation's. The `<mark>` ref is attached to the first block that overlaps
+ * — that is the one to scroll to.
+ */
+function Highlighted({
+  block,
+  range,
+  markRef,
+}: {
+  block: PageBlock;
+  range: { start: number; end: number } | null;
+  markRef: React.RefObject<HTMLElement | null>;
+}) {
+  if (!range || range.end <= block.start || range.start >= block.end) {
+    return <>{block.text}</>;
+  }
+
+  // Map the overlap into offsets within this block's own text. Headings carry
+  // their `#` marker in the source range but not in `text`, so clamping keeps
+  // the slice inside the rendered string.
+  const markerOffset = block.end - block.start - block.text.length;
+  const from = Math.max(0, range.start - block.start - markerOffset);
+  const to = Math.min(block.text.length, range.end - block.start - markerOffset);
+
+  if (to <= from) return <>{block.text}</>;
+
+  return (
+    <>
+      {block.text.slice(0, from)}
+      <mark
+        ref={range.start >= block.start ? markRef : undefined}
+        className="rounded-[0.2rem] bg-[var(--accent-subtle)] px-0.5 text-foreground"
+      >
+        {block.text.slice(from, to)}
+      </mark>
+      {block.text.slice(to)}
+    </>
   );
 }
 
