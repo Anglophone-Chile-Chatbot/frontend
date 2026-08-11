@@ -212,6 +212,96 @@ hard rule in root `CLAUDE.md` and the Antigravity mirror. Shakib runs multiple u
 this Mac; the default 3000/3001 collided with something else and made a correctly-updated build look
 stale. Always check local UI at `http://localhost:3417`, never bare `localhost:3000`.
 
+## AUDIT FIXES 2026-08-11 — do these in order, A1 first
+
+> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). Backend **B1**
+> is ranked ahead of A1 globally. A1 is the first *frontend* item, not necessarily the next thing
+> to do overall — check the root table first.
+
+Each item below is self-contained: the symptom, the measured evidence, the exact file, the reason
+the obvious fix is wrong, and how to know it worked. Pick the first unchecked one and finish it.
+Do not batch them — A1 alone is a visible win.
+
+### A1 — Citation highlight silently misses on 78% of chunks  ← START HERE
+- [ ] **Symptom Shakib reported:** "the reference links are not always clear, I'm pretty sure there
+      are issues with references when clicked on." Clicking a citation opens the right page, but
+      nothing is highlighted and the page does not scroll to the passage, so it looks like the
+      citation pointed nowhere.
+
+  **Measured, not assumed (2026-08-11, 112 real chunks sampled across the live corpus):**
+  - exact whole-chunk match — what the code requires today: **25/112 = 22%**
+  - would match if the section prefix were stripped: **+43 = 61% total**
+  - still unmatched after that (table rewrites): 44/112 = 39%
+
+  **Root cause — the stored chunk is deliberately not a copy of the page text.** In
+  `infra/scripts/batch_ocr/chunking.py`, `chunk_page()` builds each chunk as
+  `f"{section}\n\n{body}"` — it prepends the section heading (e.g. `DEPARTURES.`) so the heading
+  lands in `ts_vector` and the LLM can see where a citation came from. That is correct for
+  retrieval and must not be reverted. But it means `pages.raw_text.indexOf(chunk)` fails whenever
+  the heading did not immediately precede the body on the page. Separately, `_segment()` turns
+  prose blocks into `" ".join(lines)` and keeps table rows verbatim, so whitespace diverges too.
+
+  The viewer does an exact `indexOf` in
+  [source-viewer-body.tsx:129](frontend/src/components/archive/source-viewer-body.tsx#L129):
+  `const index = text.indexOf(needle);` — one shot, no fallback. `-1` means no highlight, silently.
+
+  **Fix, in `frontend/src/components/archive/source-viewer-body.tsx`, in the `range` `useMemo`.**
+  Make matching a ladder, stopping at the first hit:
+  1. exact `indexOf(passage.trim())` — keep, it is the cheap common case
+  2. **strip the section prefix**: if the passage contains `\n\n`, retry with everything after the
+     first `\n\n`. This is the single highest-value step — it is the 22%→61% jump on its own.
+  3. **whitespace-insensitive match**: build a regex from the passage where every run of whitespace
+     becomes `\s+`, and `RegExp.escape` (or a manual escape) every other char. This recovers the
+     prose blocks the chunker re-joined. Match against the raw text and use `match.index` /
+     `match[0].length` so the returned offsets still index the raw string.
+  4. **anchor fallback**: match only the first ~80 non-whitespace characters of the body and
+     highlight from there to the end of that paragraph. Better to highlight approximately and
+     scroll to the right place than to highlight nothing.
+  5. give up → render with no highlight (current behaviour, now genuinely rare).
+
+  **Do not** "fix" this by storing a second copy of the text, and do not change the chunker to stop
+  prefixing the section — that would degrade `ts_rank_cd` for every query to fix a display bug.
+  The offsets returned must stay offsets into the raw string, because
+  `parsePageBlocks` in [page-blocks.ts](frontend/src/lib/page-blocks.ts) carries `start`/`end` per
+  block and `Highlighted` maps them; that contract is what keeps rendering and highlighting from
+  disagreeing.
+
+  **Done when:** clicking a citation chip highlights and scrolls on a clear majority of sources.
+  **Verify with:** `python3 infra/scripts/audit_metrics.py highlight` — it samples 112 real chunks
+  and prints the exact-match rate against the 22% baseline. The number is the deliverable, not a
+  vibe. Note the script measures the *data*, so it shows what is achievable; also cross-check at
+  least 3 chips by hand in the browser at 375px and at `lg`, since only that proves the ladder in
+  the component actually fires.
+
+### A2 — Nothing tells the reader when a highlight could not be found
+- [ ] Once A1 lands, some passages will still not match (tables especially). Today that failure is
+      **completely invisible** — the page just opens, unhighlighted, indistinguishable from a broken
+      link. That is exactly what made Shakib distrust the references.
+
+  **Fix:** when the ladder in A1 falls through to "no match", show one quiet line at the top of the
+  text body — e.g. *"Showing the full page; the exact cited passage could not be located on it."*
+  Muted, one line, no icon, no colour. It converts a silent failure into an honest statement.
+  Follows the existing `EmptyNote` voice already in `source-viewer-body.tsx`.
+
+  **Done when:** a chunk known to be a table (see A1 measurement) opens with the note visible, and a
+  chunk that matches shows no note.
+
+### A3 — There is still no way to browse documents without searching first
+- [ ] Raised twice before and still true: the **only** paths into the viewer are (a) clicking a
+      search result in `archive-browser.tsx` or (b) clicking a citation chip. `document-rail.tsx`
+      is `lg`+ only and its "Collections" rows open the *scope picker* or link to `/` — they never
+      open a document. So a first-time visitor on a phone must guess a search term to see anything,
+      and the archive appears empty even though it has 2 issues and 20 pages.
+
+  **Fix:** on `/archive`, when the search query is empty, render the document list from the existing
+  `/api/documents` Route Handler (already built for the scope picker — reuse it, do not add an
+  endpoint) as browsable rows: publication, issue date, page count. Clicking one opens page 1 in the
+  viewer. Mobile-first, ~44px rows.
+
+  **Done when:** loading `/archive` on a 375px viewport with an empty query lists both issues and
+  each opens the viewer. **Ask Shakib before styling beyond the existing `ResultRow` pattern** —
+  this adds a visible surface, and the design bar is his call.
+
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
 - [ ] Cross-document pattern discovery UI (confirmed 2026-08-08) — surfaces connections/patterns
