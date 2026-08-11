@@ -7,7 +7,9 @@ import type { ChatSource, SearchResponse, SearchResult } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
+import { DocumentRail } from "./document-rail";
 import { SourceViewer } from "./source-viewer";
+import { SourceViewerPanel } from "./source-viewer-panel";
 
 /**
  * Full-text search over the archive.
@@ -79,86 +81,90 @@ export function ArchiveBrowser() {
   const hasMore = results.length < total;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 pb-12 sm:px-6 sm:py-7">
-        <p className="eyebrow">Archive</p>
-        <h1 className="mt-2.5 font-heading text-[1.5rem] leading-tight text-foreground sm:text-[1.875rem]">
-          Search the pages directly
-        </h1>
-        <p className="measure mt-2.5 text-[0.875rem] leading-relaxed text-muted-foreground">
-          Full-text search across every scanned page. Results are ranked by
-          relevance and open in the original.
-        </p>
+    <div className="flex min-h-0 flex-1">
+      <DocumentRail />
 
-        <form onSubmit={submit} className="mt-5">
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-lg border bg-card px-3",
-              "transition-[border-color] duration-[120ms] ease-[var(--ease-crisp)]",
-              "focus-within:border-[var(--accent)]",
-            )}
-          >
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              type="search"
-              inputMode="search"
-              enterKeyHint="search"
-              placeholder="Search words or phrases…"
-              aria-label="Search the archive"
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+        <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 pb-12 sm:px-6 sm:py-7">
+          <p className="eyebrow">Archive</p>
+          <h1 className="mt-2.5 font-heading text-[1.5rem] leading-tight text-foreground sm:text-[1.875rem]">
+            Search the pages directly
+          </h1>
+          <p className="measure mt-2.5 text-[0.875rem] leading-relaxed text-muted-foreground">
+            Full-text search across every scanned page. Results are ranked by
+            relevance and open in the original.
+          </p>
+
+          <form onSubmit={submit} className="mt-5">
+            <div
               className={cn(
-                "min-h-[44px] flex-1 bg-transparent outline-none",
-                // 16px avoids iOS zoom-on-focus.
-                "text-base sm:text-[0.9375rem]",
-                "placeholder:text-muted-foreground",
+                "flex items-center gap-2 rounded-lg border bg-card px-3",
+                "transition-[border-color] duration-[120ms] ease-[var(--ease-crisp)]",
+                "focus-within:border-[var(--accent)]",
               )}
-            />
+            >
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                placeholder="Search words or phrases…"
+                aria-label="Search the archive"
+                className={cn(
+                  "min-h-[44px] flex-1 bg-transparent outline-none",
+                  // 16px avoids iOS zoom-on-focus.
+                  "text-base sm:text-[0.9375rem]",
+                  "placeholder:text-muted-foreground",
+                )}
+              />
+            </div>
+          </form>
+
+          <div className="mt-6">
+            {status === "searching" && <SearchingNote />}
+            {status === "error" && <ErrorNote />}
+            {status === "idle" && <IdleNote />}
+            {status === "loaded" && results.length === 0 && (
+              <NoResultsNote term={submitted} />
+            )}
+
+            {status === "loaded" && results.length > 0 && (
+              <>
+                <p className="eyebrow mb-3">
+                  {total} {total === 1 ? "passage" : "passages"} found
+                </p>
+                <ul className="flex flex-col">
+                  {results.map((result) => (
+                    <ResultRow
+                      key={result.chunk_id}
+                      result={result}
+                      query={submitted}
+                      onOpen={setActive}
+                    />
+                  ))}
+                </ul>
+
+                {hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => void runSearch(submitted, results.length)}
+                    disabled={isLoadingMore}
+                    className={cn(
+                      "mt-4 flex min-h-[44px] w-full items-center justify-center gap-2",
+                      "rounded-md border text-[0.8125rem] text-foreground",
+                      "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+                      "hover:bg-secondary disabled:opacity-60",
+                    )}
+                  >
+                    {isLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    {isLoadingMore ? "Loading…" : "Load more"}
+                  </button>
+                )}
+              </>
+            )}
           </div>
-        </form>
-
-        <div className="mt-6">
-          {status === "searching" && <SearchingNote />}
-          {status === "error" && <ErrorNote />}
-          {status === "idle" && <IdleNote />}
-          {status === "loaded" && results.length === 0 && (
-            <NoResultsNote term={submitted} />
-          )}
-
-          {status === "loaded" && results.length > 0 && (
-            <>
-              <p className="eyebrow mb-3">
-                {total} {total === 1 ? "passage" : "passages"} found
-              </p>
-              <ul className="flex flex-col">
-                {results.map((result) => (
-                  <ResultRow
-                    key={result.chunk_id}
-                    result={result}
-                    query={submitted}
-                    onOpen={setActive}
-                  />
-                ))}
-              </ul>
-
-              {hasMore && (
-                <button
-                  type="button"
-                  onClick={() => void runSearch(submitted, results.length)}
-                  disabled={isLoadingMore}
-                  className={cn(
-                    "mt-4 flex min-h-[44px] w-full items-center justify-center gap-2",
-                    "rounded-md border text-[0.8125rem] text-foreground",
-                    "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
-                    "hover:bg-secondary disabled:opacity-60",
-                  )}
-                >
-                  {isLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {isLoadingMore ? "Loading…" : "Load more"}
-                </button>
-              )}
-            </>
-          )}
         </div>
       </div>
 
@@ -168,6 +174,11 @@ export function ArchiveBrowser() {
         onOpenChange={(open) => {
           if (!open) setActive(null);
         }}
+      />
+      <SourceViewerPanel
+        source={active ? toChatSource(active) : null}
+        passage={active?.content ?? null}
+        onClose={() => setActive(null)}
       />
     </div>
   );

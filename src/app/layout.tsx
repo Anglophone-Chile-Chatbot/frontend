@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Playfair_Display, Lora, Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 
 import { SiteHeader } from "@/components/archive/site-header";
@@ -10,6 +10,15 @@ import "./globals.css";
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+// Long-form reading face for the chat transcript — questions and answers.
+// Playfair is a display face and stays confined to titles/headings/publication
+// names; Lora carries the actual reading content.
+const lora = Lora({
+  variable: "--font-lora",
   subsets: ["latin"],
   display: "swap",
 });
@@ -47,7 +56,7 @@ export default function RootLayout({
       lang="en"
       // next-themes writes the class here; without this React warns on hydration.
       suppressHydrationWarning
-      className={`${playfairDisplay.variable} ${inter.variable} h-full antialiased`}
+      className={`${playfairDisplay.variable} ${lora.variable} ${inter.variable} h-full antialiased`}
     >
       {/* `grain` lays the newsprint texture over the whole viewport.
           `h-dvh` + `overflow-hidden` make the shell own scrolling, so the
@@ -55,8 +64,11 @@ export default function RootLayout({
       <body className="grain flex h-dvh flex-col overflow-hidden font-sans">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          // Locked to light: the paper/ink identity is the whole design, and
+          // there is no in-UI toggle, so `enableSystem` was silently handing
+          // every OS-dark visitor a different, unfinished palette by default.
+          // Revisit once a manual toggle exists.
+          forcedTheme="light"
           disableTransitionOnChange
         >
           <TooltipProvider>

@@ -32,7 +32,7 @@ export function AnswerText({
   }, [answer, sources, isStreaming]);
 
   return (
-    <div className="measure whitespace-pre-wrap text-[0.9375rem] leading-[1.65] text-foreground">
+    <div className="font-text-serif measure whitespace-pre-wrap text-[0.9375rem] leading-[1.65] text-foreground">
       {segments.map((segment, index) =>
         segment.kind === "text" ? (
           <Fragment key={index}>{segment.text}</Fragment>

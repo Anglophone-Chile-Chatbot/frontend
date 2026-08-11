@@ -35,7 +35,12 @@ export function ChatEmptyState({
   onBrowse: () => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-10 sm:px-6">
+    /* `my-auto` centres this block only while there is room to spare. Unlike
+       `justify-center` on the flex parent, auto margins never push content
+       past the scroll container's top edge, so on a short viewport the block
+       simply scrolls instead of bleeding out of both ends — which is what hid
+       the eyebrow behind the header and slid the last row under the composer. */
+    <div className="mx-auto my-auto flex w-full max-w-3xl flex-col px-4 py-10 sm:px-6">
       <p className="eyebrow">The Anglophone Chile Archive</p>
 
       <h1 className="mt-3 font-heading text-[1.75rem] leading-[1.15] text-foreground sm:text-[2.25rem]">

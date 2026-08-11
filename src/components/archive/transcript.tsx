@@ -85,11 +85,18 @@ function TurnBlock({
   onOpenSource: (source: ChatSource) => void;
 }) {
   return (
-    <div className="animate-rise flex flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
-        <h2 className="font-heading text-[1.0625rem] leading-snug text-foreground sm:text-[1.125rem]">
+    <div id={`turn-${turn.id}`} className="animate-rise flex scroll-mt-4 flex-col gap-3">
+      {/* The question gets its own role — a labelled rule, not a heading.
+          It's user-typed text, so it takes the reading serif, never
+          Playfair (a display face reserved for real titles). */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline gap-2.5">
+          <span className="eyebrow shrink-0 text-muted-foreground">You asked</span>
+          <span className="rule-t h-0 flex-1 translate-y-[-1px]" aria-hidden />
+        </div>
+        <p className="font-text-serif border-l-2 border-[var(--rule-strong)] pl-3 text-[1.0625rem] leading-snug font-semibold text-foreground sm:text-[1.125rem]">
           {turn.question}
-        </h2>
+        </p>
         {/* Scope is stamped on the turn, not read from current state, so an
             answer stays labelled with the scope it was actually asked under. */}
         {turn.scope && <ScopeMark labels={turn.scope.labels} />}
@@ -104,13 +111,22 @@ function TurnBlock({
         </p>
       ) : (
         turn.answer.length > 0 && (
-          <AnswerText
-            answer={turn.answer}
-            sources={turn.sources}
-            isStreaming={turn.status === "streaming"}
-            activeChunkId={activeChunkId}
-            onOpenSource={onOpenSource}
-          />
+          <div className="bg-card-answer rounded-r-lg border border-[var(--rule)] border-l-[3px] border-l-[var(--accent)] px-4 py-3.5">
+            <p className="eyebrow mb-2 flex items-center gap-1.5 text-[var(--accent)]">
+              <span
+                className="h-[5px] w-[5px] shrink-0 rounded-full bg-[var(--accent)]"
+                aria-hidden
+              />
+              Answer from the archive
+            </p>
+            <AnswerText
+              answer={turn.answer}
+              sources={turn.sources}
+              isStreaming={turn.status === "streaming"}
+              activeChunkId={activeChunkId}
+              onOpenSource={onOpenSource}
+            />
+          </div>
         )
       )}
 

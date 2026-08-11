@@ -10,10 +10,24 @@
 - create-next-app scaffold: Next.js 16, TS, App Router, Tailwind v4, Turbopack, src-dir, `@/*` alias
 - shadcn init (base-nova preset) + components: button, card, input, avatar, badge, separator, scroll-area, skeleton, sonner, dialog, sheet, tabs, tooltip, dropdown-menu
 - Deps: ai, @ai-sdk/react, @ai-sdk/google, @ai-sdk/anthropic, react-pdf, motion, next-auth@beta
-- `layout.tsx`: Playfair Display (headings) + Inter (body), TooltipProvider, Toaster
-- `globals.css` `@theme inline`: --font-sans→inter, --font-heading→playfair
-- CI workflow (lint + tsc + build)
+- `layout.tsx`: Playfair Display (display) + Lora (reading) + Inter (UI), TooltipProvider, Toaster
+- `globals.css` `@theme inline`: --font-sans→inter, --font-heading→playfair, --font-serif→lora
 - Live on Vercel with auto-deploy on push to main (Hobby, repo public)
+
+## CI/CD — how deploys actually happen (verified 2026-08-11)
+Two independent systems, and the distinction matters:
+- **GitHub Actions** (`.github/workflows/ci.yml`) — runs `npm run lint`, `tsc --noEmit`, `npm run
+  build` on every push/PR to `main`. Quality gate only. It does **not** deploy anything.
+- **Vercel** — deploys via its own GitHub integration, independently, on push to `main`. Project
+  `prj_MM8t8QobAWJnuDba9CmZ9tvW6w92`, org `team_4g2iLkOnKTKR2R7quL1cwne4`.
+
+So yes, pushing to `main` auto-deploys with no manual step. **But the two don't talk to each other:
+Vercel does not wait for Actions to go green, so a commit that fails CI still ships to production.**
+That's acceptable at Phase 1 with one engineer who runs the same three checks locally before pushing,
+and it's why those local checks aren't optional.
+- [ ] Consider gating Vercel on CI (Vercel's "Ignored Build Step" or moving deploys into Actions) if
+      the project ever gains a second contributor. Not worth the complexity today — noted so the gap
+      is a known trade-off rather than an oversight.
 
 ## Phase 1 — built this pass (2026-07-28)
 The whole public surface now exists and runs. Verified against a mock backend that
@@ -116,43 +130,66 @@ harmless, and Phase 2 may want them.
       longer than the truncation assumes, and issues whose `publication` is null so the row falls
       back to `title`.
 
-## Phase 1 — visual redesign (confirmed 2026-08-11, not started)
-**Trigger:** first live look at the deployed site (`frontend-gamma-dun-82.vercel.app`) after the
-backend was wired up. Functionally correct (Route Handler → Oracle → clean empty-archive answer,
-proven live) but the visuals were rejected outright. This is a design-only redo — no proxy, hook,
-streaming, or citation-parsing logic changes. Everything in "Phase 1 — built this pass (2026-07-28)"
-stays; only the look changes.
+## Phase 1 — visual redesign — DONE 2026-08-11
+Rebuilt after the first live look was rejected outright. Design-only: the SSE hook, Route Handlers,
+citation parsing, scope logic and search ranking were not touched, and the diff proves it — the
+changes are CSS, markup, typography and layout, plus new shell components.
 
-**What's wrong, specifically:**
-- [ ] Reads as flat dark-mode-default, not an academic paper archive — the warm bone/ink palette and
-      purple accent exist in `globals.css` but don't read as intentional live, especially with nothing
-      populated yet to carry the accent (no chips, no visible active state at rest).
-- [ ] CSS-generated newsprint grain is present in code but not visually landing — not reading as
-      texture on the live page.
-- [ ] Playfair Display on user-typed chat content (e.g. the question itself rendered in Playfair)
-      reads as a mismatch — a headline/display font applied somewhere it shouldn't be. Reconsider
-      where display serif is used (page titles, section headers) vs. body/chat content, which should
-      probably be a serif built for long-form reading rather than a display face — something in the
-      Latin/text-serif family (e.g. Source Serif, Lora, PT Serif, Libre Caslon Text) rather than
-      Playfair, which is a display face. Needs a real type audit, not a guess — pick per-context, not
-      one font doing every job.
-- [ ] Doesn't read as a chat product at all — no message-turn structure (bubbles, alignment, avatar,
-      or visual distinction between question and answer), just two stacked paragraphs. Compare
-      structurally to ChatGPT/Claude's turn layout (not their visual style — this project's own
-      academic/editorial direction stays) for what makes a transcript scannable as a conversation:
-      clear per-turn boundaries, consistent question/answer visual roles, breathing room between turns.
-- [ ] General ask: full visual pass across Ask (chat) and Archive (search) — this screenshot only
-      shows Ask, Archive needs the same scrutiny once Ask is settled.
+**Direction: Kotaemon's structure, this project's own look.** Shakib picked it from two mockups
+(the other was InsightsLM's three-column sources/chat/studio). Kotaemon won because it's the
+cheapest honest evolution of what already existed: `SourceViewer` was already "opens on citation
+click", so docking it as a standing column and adding a session rail is a layout change, not a
+rewrite. Their *structure* only — Gradio grey and Google Sans never entered the picture.
 
-**Explicitly not in scope for this redesign pass:** SSE/streaming logic, `useArchiveChat` hook,
-citation chip parsing/ordinal logic, Route Handlers, document-scoped chat mode, search
-ranking/pagination. Those are proven working against the real backend and are not to be touched —
-this is CSS/component-markup/typography/layout only, plus whatever `globals.css` tokens need to
-change to support it.
+- [x] **The palette was never broken — it was never being shown.** `defaultTheme="system"` with no
+      in-UI toggle meant every OS-dark visitor silently got the secondary `.dark` palette instead of
+      the paper/ink identity the whole design is specified around. Now `forcedTheme="light"`, with a
+      note to revisit if a real toggle ever ships. This single line explains most of "it looks like
+      flat dark mode".
+- [x] Grain now reads: `mix-blend-mode: multiply` in light so the noise *darkens* paper into texture
+      rather than laying flat grey haze over it (dark mode stays `normal` — multiply on near-black
+      crushes to nothing). Opacity nudged 0.055→0.08 light, 0.09→0.11 dark. The blend mode was the
+      missing piece, not the number.
+- [x] **Type audit done, per-context not one-font-everywhere.** Added Lora (`--font-serif`,
+      `.font-text-serif`) for anything read at length — chat questions, answers, extracted page text.
+      Playfair is now display-only: wordmark, page H1s, publication names, empty-state titles. Inter
+      keeps all UI chrome. The actual bug was `transcript.tsx` rendering the user's typed question as
+      an `<h2>`, which the global `h1,h2,h3 { font-heading }` rule then set in Playfair — a display
+      face on live user text. It's a `<p>` now.
+      Lora was picked over Source Serif 4 after seeing both: Source Serif read "vertically squashed"
+      at chat sizes.
+- [x] **Turn structure.** A "You asked" eyebrow + hairline rule + left ink border on the question;
+      the answer sits on its own `--card-answer` surface with an accent left-rule and an "Answer from
+      the archive" label. Question and answer now have distinct visual roles instead of being two
+      stacked paragraphs. Structure borrowed from ChatGPT/Claude transcripts, dressed editorially.
+- [x] **Rail + docked panel** (`document-rail.tsx`, `source-viewer-panel.tsx`), `lg`+ only, on both
+      Ask and Archive so the two pages read as one shell. Rail holds this-session questions (in
+      memory only — Phase 1 is stateless, no persistence, nothing survives reload) and a short
+      Collections list into the scope picker. On Archive there's no chat state, so that block is
+      omitted rather than shown fake-empty, and Collections rows link to Ask.
+- [x] **One fetch path, not two.** Rather than duplicate the viewer for docked vs sheet, the fetch
+      moved to `use-source-page.ts` and the body to `source-viewer-body.tsx`; the sheet (`<lg`) and
+      the docked panel (`lg`+) are thin wrappers over both. They cannot drift.
+- [x] **The layout bug that took three rounds to catch.** `ChatEmptyState` used `justify-center` on a
+      flex child inside the scroll container. Once content exceeded the container, `justify-center`
+      split the overflow to *both* ends — the top became unreachable by scrolling (eyebrow hidden
+      under the header) and the bottom slid under the composer. Only reproduced at ~710px viewport
+      height, which is why 900–1254px testing kept coming back clean; Shakib's window was a 1352×710
+      CSS viewport behind a Retina screenshot. Fixed with `my-auto`, which centres only when there's
+      spare room and collapses to zero when there isn't. An earlier `min-h-0` "fix" made it worse and
+      was reverted.
+      Lesson worth keeping: match the reporter's actual viewport before concluding "can't reproduce".
 
-**Process for next session:** design-only exploration first — proposed direction(s) should be
-reviewed and confirmed before any component code changes, given how strongly the current visual
-direction was rejected. Don't rebuild silently and present a finished result.
+Verified at 375 / 710 / 900 / 1100 / 1254px, both pages, plus tsc + eslint + `next build` clean.
+Mobile is untouched by design — no rail, no docked panel, same sheet-based picker and viewer as before.
+
+**Still unseen against real data.** Every citation feature here has only ever rendered mock or empty
+states: no chip has resolved to a real page, the docked panel has never shown a scan, the rail's
+Collections list has only ever said "No documents in the archive yet". The empty-archive path is
+genuinely proven; the populated one is not.
+
+- [ ] Header wordmark centres on the full viewport while content centres within the chat column, so
+      it sits slightly off-axis next to the rail. Cosmetic, noticed 2026-08-11, not yet fixed.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer

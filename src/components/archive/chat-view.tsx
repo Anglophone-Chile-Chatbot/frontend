@@ -7,9 +7,11 @@ import type { ChatSource, DocumentSummary } from "@/lib/api/types";
 
 import { ChatEmptyState } from "./chat-empty-state";
 import { Composer } from "./composer";
+import { DocumentRail } from "./document-rail";
 import { ScopeBar } from "./scope-bar";
 import { ScopePicker } from "./scope-picker";
 import { SourceViewer } from "./source-viewer";
+import { SourceViewerPanel } from "./source-viewer-panel";
 import { Transcript } from "./transcript";
 
 /**
@@ -24,7 +26,7 @@ import { Transcript } from "./transcript";
  * each turn records the scope it was actually asked under.
  */
 export function ChatView() {
-  const { turns, isBusy, ask, stop } = useArchiveChat();
+  const { turns, isBusy, ask, stop, reset } = useArchiveChat();
   const [active, setActive] = useState<ChatSource | null>(null);
   const [scope, setScope] = useState<DocumentSummary[]>([]);
   const [isPickerOpen, setPickerOpen] = useState(false);
@@ -32,6 +34,14 @@ export function ChatView() {
   const openSource = useCallback((source: ChatSource) => {
     setActive(source);
   }, []);
+
+  // The rail's "New question" clears the transcript — close any open
+  // citation too, since it would otherwise point at a turn that no longer
+  // exists once the panel is reopened.
+  const startNewChat = useCallback(() => {
+    reset();
+    setActive(null);
+  }, [reset]);
 
   // Every question carries the scope in force when it was asked, so the
   // transcript stays truthful after the scope changes.
@@ -52,29 +62,38 @@ export function ChatView() {
   const isEmpty = turns.length === 0;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {isEmpty ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-          <ChatEmptyState onPick={askScoped} onBrowse={() => setPickerOpen(true)} />
-        </div>
-      ) : (
-        <Transcript
-          turns={turns}
-          activeChunkId={active?.chunk_id ?? null}
-          onOpenSource={openSource}
-        />
-      )}
+    <div className="flex min-h-0 flex-1">
+      {/* Rail is a standing column from `lg` up only (Kotaemon structure);
+          below that it doesn't exist — the mobile shell stays exactly as it
+          was, sheet-based scope picker included. This-session-only turn list,
+          no persistence: Phase 1 chat is stateless, no exceptions. */}
+      <DocumentRail turns={turns} onNewChat={startNewChat} onOpenPicker={() => setPickerOpen(true)} />
 
-      <div className="rule-t bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm">
-        <ScopeBar
-          selected={scope}
-          onOpen={() => setPickerOpen(true)}
-          onClear={() => setScope([])}
-          // Scope must not change mid-answer: the turn in flight was already
-          // retrieved under the old scope, so switching would mislabel it.
-          disabled={isBusy}
-        />
-        <Composer onSubmit={askScoped} onStop={stop} isBusy={isBusy} />
+      <div className="flex min-h-0 flex-1 flex-col">
+        {isEmpty ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+            <ChatEmptyState onPick={askScoped} onBrowse={() => setPickerOpen(true)} />
+          </div>
+        ) : (
+          <Transcript
+            turns={turns}
+            activeChunkId={active?.chunk_id ?? null}
+            onOpenSource={openSource}
+          />
+        )}
+
+        <div className="rule-t bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm shrink-0">
+          <ScopeBar
+            selected={scope}
+            onOpen={() => setPickerOpen(true)}
+            onClear={() => setScope([])}
+            // Scope must not change mid-answer: the turn in flight was
+            // already retrieved under the old scope, so switching would
+            // mislabel it.
+            disabled={isBusy}
+          />
+          <Composer onSubmit={askScoped} onStop={stop} isBusy={isBusy} />
+        </div>
       </div>
 
       <ScopePicker
@@ -86,7 +105,10 @@ export function ChatView() {
 
       {/* No passage to highlight from a chat citation: the stream's `sources`
           event carries citation metadata but not chunk text. Search results do
-          carry content, so the archive browser passes a passage through. */}
+          carry content, so the archive browser passes a passage through.
+          Below `lg`: sheet. From `lg`: SourceViewerPanel takes over as a
+          docked column and this one hides itself — see SourceViewer's own
+          comment for why both exist rather than one responsive component. */}
       <SourceViewer
         source={active}
         passage={null}
@@ -94,6 +116,7 @@ export function ChatView() {
           if (!open) setActive(null);
         }}
       />
+      <SourceViewerPanel source={active} passage={null} onClose={() => setActive(null)} />
     </div>
   );
 }
