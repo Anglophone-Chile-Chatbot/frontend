@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSourcePage } from "@/hooks/use-source-page";
-import type { ChatSource } from "@/lib/api/types";
+import type { ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ export function SourceViewer({
   onOpenChange,
 }: {
   /** The page to show; `null` closes the viewer. */
-  source: ChatSource | null;
+  source: ViewerSource | null;
   /** Cited chunk text, highlighted within the page when found. */
   passage?: string | null;
   onOpenChange: (open: boolean) => void;

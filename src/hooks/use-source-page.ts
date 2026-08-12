@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import type { ChatSource, PageDetail } from "@/lib/api/types";
+import type { PageDetail, ViewerSource } from "@/lib/api/types";
 
 /**
  * Fetches the page a citation or search result points to.
@@ -10,7 +10,7 @@ import type { ChatSource, PageDetail } from "@/lib/api/types";
  * Shared by the mobile sheet and desktop docked source viewers so the two
  * can't drift — both are thin renderers over this one fetch.
  */
-export function useSourcePage(source: ChatSource | null) {
+export function useSourcePage(source: ViewerSource | null) {
   const pageId = source?.page_id ?? null;
   const [page, setPage] = useState<PageDetail | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">(

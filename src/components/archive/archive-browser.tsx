@@ -3,10 +3,16 @@
 import { Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ChatSource, SearchResponse, SearchResult } from "@/lib/api/types";
+import type {
+  DocumentSummary,
+  SearchResponse,
+  SearchResult,
+  ViewerSource,
+} from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
+import { DocumentCatalogue } from "./document-catalogue";
 import { DocumentRail } from "./document-rail";
 import { SourceViewer } from "./source-viewer";
 import { SourceViewerPanel } from "./source-viewer-panel";
@@ -30,7 +36,20 @@ export function ArchiveBrowser() {
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<Status>("idle");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [active, setActive] = useState<SearchResult | null>(null);
+  /**
+   * The page open in the viewer, and the passage to highlight within it.
+   *
+   * Held as `{ source, passage }` rather than as a `SearchResult` because the
+   * viewer now opens from two places with different amounts of information: a
+   * search hit knows the matched chunk text and wants it highlighted, while a
+   * catalogue row is just "open this issue at page 1" and has no cited passage
+   * at all. Passing the whole result and deriving the passage from it would
+   * have forced a fake chunk for the browse case.
+   */
+  const [active, setActive] = useState<{
+    source: ViewerSource;
+    passage: string | null;
+  } | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
   const runSearch = useCallback(async (term: string, offset: number) => {
@@ -68,6 +87,60 @@ export function ArchiveBrowser() {
   }, []);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
+
+  /**
+   * Open a search hit at its matched page, highlighting the matched passage.
+   *
+   * `SearchResult` is a superset of what the viewer needs, so the citation
+   * fields are projected and `content` becomes the passage to highlight —
+   * unchanged behaviour, just expressed as one of two entry points now.
+   */
+  const openResult = useCallback((result: SearchResult) => {
+    setActive({
+      source: {
+        chunk_id: result.chunk_id,
+        page_id: result.page_id,
+        document_id: result.document_id,
+        page_number: result.page_number,
+        publication: result.publication,
+        issue_date: result.issue_date,
+      },
+      passage: result.content,
+    });
+  }, []);
+
+  /**
+   * Open a browsed document at its first page.
+   *
+   * The catalogue has no chunk and no matched text, so `passage` is null and
+   * the viewer shows the page unhighlighted — which is honest: nothing was
+   * cited here, so marking a passage would invent an emphasis the reader never
+   * asked for. `chunk_id` is the page id because the viewer only uses it as a
+   * React key; nothing resolves it back to a chunk on this path.
+   *
+   * `page_number` is deliberately null rather than 1. Both viewers render
+   * `source.page_number ?? page.page_number`, preferring what the caller
+   * passed — so hardcoding 1 here would print "Page 1" even for an issue whose
+   * lowest ingested page is 3, and it would print it *confidently*, overriding
+   * the fetched page's own number. Null makes the viewer fall through to the
+   * page it actually loaded, which is the only value known to be true.
+   */
+  const openDocument = useCallback(
+    (document: DocumentSummary, pageId: string) => {
+      setActive({
+        source: {
+          chunk_id: pageId,
+          page_id: pageId,
+          document_id: document.document_id,
+          page_number: null,
+          publication: document.publication,
+          issue_date: document.issue_date,
+        },
+        passage: null,
+      });
+    },
+    [],
+  );
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -125,7 +198,17 @@ export function ArchiveBrowser() {
           <div className="mt-6">
             {status === "searching" && <SearchingNote />}
             {status === "error" && <ErrorNote />}
-            {status === "idle" && <IdleNote />}
+            {/* Before any search, the archive lists itself. This is the only
+                path into the viewer that does not require guessing a search
+                term first, and it is the whole point of the catalogue. */}
+            {status === "idle" && (
+              <>
+                <IdleNote />
+                <div className="mt-6">
+                  <DocumentCatalogue onOpen={openDocument} />
+                </div>
+              </>
+            )}
             {status === "loaded" && results.length === 0 && (
               <NoResultsNote term={submitted} />
             )}
@@ -141,7 +224,7 @@ export function ArchiveBrowser() {
                       key={result.chunk_id}
                       result={result}
                       query={submitted}
-                      onOpen={setActive}
+                      onOpen={openResult}
                     />
                   ))}
                 </ul>
@@ -169,31 +252,19 @@ export function ArchiveBrowser() {
       </div>
 
       <SourceViewer
-        source={active ? toChatSource(active) : null}
-        passage={active?.content ?? null}
+        source={active?.source ?? null}
+        passage={active?.passage ?? null}
         onOpenChange={(open) => {
           if (!open) setActive(null);
         }}
       />
       <SourceViewerPanel
-        source={active ? toChatSource(active) : null}
-        passage={active?.content ?? null}
+        source={active?.source ?? null}
+        passage={active?.passage ?? null}
         onClose={() => setActive(null)}
       />
     </div>
   );
-}
-
-/** `SearchResult` is a superset of `ChatSource`; the viewer needs the latter. */
-function toChatSource(result: SearchResult): ChatSource {
-  return {
-    chunk_id: result.chunk_id,
-    page_id: result.page_id,
-    document_id: result.document_id,
-    page_number: result.page_number,
-    publication: result.publication,
-    issue_date: result.issue_date,
-  };
 }
 
 function ResultRow({

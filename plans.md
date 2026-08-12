@@ -214,9 +214,10 @@ stale. Always check local UI at `http://localhost:3417`, never bare `localhost:3
 
 ## AUDIT FIXES 2026-08-11 — do these in order, A1 first
 
-> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). A1 and A2 are
-> done; **A3 is now the next item overall** — but it is a new visible surface, so **ask Shakib
-> before styling it.**
+> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). A1, A2 and A3 are
+> all done. **No frontend audit items remain.** The next items overall are backend **B3**
+> (figures/images schema — settle before the bulk GPU run, it changes the ingest contract) and
+> **B4** (one document crowding the top-k), then infra **I1**, which is blocked on a domain.
 
 > **`src/instrumentation.ts` lives here but is tracked as backend B2** (done 2026-08-12) — that is
 > not a filing mistake. B2 is "connection reuse to Oracle", and the connection is opened by *this*
@@ -342,21 +343,54 @@ Do not batch them — A1 alone is a visible win.
       reachable today. That branch is one ternary and fires whenever `findPassage` returns null, but
       it is honest to call it unproven on real rows until a harder corpus arrives.
 
-### A3 — There is still no way to browse documents without searching first
-- [ ] Raised twice before and still true: the **only** paths into the viewer are (a) clicking a
-      search result in `archive-browser.tsx` or (b) clicking a citation chip. `document-rail.tsx`
-      is `lg`+ only and its "Collections" rows open the *scope picker* or link to `/` — they never
-      open a document. So a first-time visitor on a phone must guess a search term to see anything,
-      and the archive appears empty even though it has 2 issues and 20 pages.
+### A3 — There is still no way to browse documents without searching first — DONE 2026-08-12
+- [x] **Done.** `/archive` now lists the archive before anything is typed, via a new
+      `document-catalogue.tsx`. Both issues render as rows (publication, issue date, page count) and
+      each opens page 1 in the existing viewer. tsc + eslint + `next build` clean.
 
-  **Fix:** on `/archive`, when the search query is empty, render the document list from the existing
-  `/api/documents` Route Handler (already built for the scope picker — reuse it, do not add an
-  endpoint) as browsable rows: publication, issue date, page count. Clicking one opens page 1 in the
-  viewer. Mobile-first, ~44px rows.
+      **The plan's premise was wrong, and this is the part worth remembering.** A3 said "reuse
+      `/api/documents`, do not add an endpoint" *and* "clicking one opens page 1 in the viewer".
+      Those two cannot both hold: `/documents` returned only `document_id`, while the viewer is
+      keyed on a page id — `GET /pages/{id}` takes a page UUID. Verified against the live API before
+      writing anything: passing a `document_id` there returns **404**. So A3 was never
+      frontend-only. Shakib chose adding `first_page_id` to the existing response over a new
+      `/documents/{id}/pages` endpoint — cheapest correct fix, one aggregate on a join the query
+      already did, no migration, no second round trip on click. See `backend/plans.md` for that half
+      and the two wrong SQL spellings it ruled out.
 
-  **Done when:** loading `/archive` on a 375px viewport with an empty query lists both issues and
-  each opens the viewer. **Ask Shakib before styling beyond the existing `ResultRow` pattern** —
-  this adds a visible surface, and the design bar is his call.
+      **`page_number` is passed as `null`, not `1`, and that is deliberate.** Both viewers render
+      `source.page_number ?? page.page_number` — they *prefer* what the caller passes. Hardcoding 1
+      would print "Page 1" confidently even for an issue whose lowest ingested page is 3, overriding
+      the fetched page's own number. Null makes the viewer fall through to the value it actually
+      loaded. This forced a small type split: a new `ViewerSource` (`ChatSource` with a nullable
+      `page_number`) used by the two viewers and `use-source-page`, while `ChatSource` stays an
+      exact mirror of the backend wire schema. Loosening `ChatSource` itself would have been the
+      lazy fix and would have made the wire type lie.
+
+      **Styling stayed inside the existing `ResultRow` pattern as instructed** — same rule, padding,
+      hover, type scale — so the pre-search and post-search lists read as one thing rather than two
+      row styles on one page. Rows compute to ~76px, well over the 44px tap minimum. No `sm:`/`lg:`
+      classes in the new file at all: it inherits the container's responsive layout, so there is no
+      breakpoint at which it can go desktop-only.
+      A document with `page_count: 0` (`first_page_id: null`) renders as static text saying "No
+      pages ingested yet — nothing to open", not as a control that looks tappable and then does
+      nothing.
+      Past the first 50 issues the catalogue says so in one line and points at the search field,
+      rather than growing a "load more" button — paging a flat list is a worse journey than
+      searching, and guessing otherwise before the corpus is large would be inventing a need.
+
+      **Verified end-to-end against the live backend, not mocked:** through the local Route Handler,
+      both rows carry real `first_page_id`s, and fetching them returns **page 1 of 16** (The Star of
+      Chile) and **page 1 of 4** (Valparaiso English Mercury) with real masthead text (5188 / 8392
+      chars) and `has_image: true`. Both scans serve as `image/webp` (I2 intact). `/archive`'s
+      initial HTML carries the catalogue's loading state, confirming it is mounted on the idle path.
+
+      **Not verified in a real browser — same blocker as A1.** The Playwright MCP profile was locked
+      by another session again ("Browser is already in use"), so nobody has *seen* these rows at
+      375px or clicked one. The data path is proven and the tap-target/responsive properties were
+      checked structurally, but the visual check is still outstanding. **This is now the second
+      pass that could not do it** — worth doing by hand next session, together with A1's three
+      citation chips.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer

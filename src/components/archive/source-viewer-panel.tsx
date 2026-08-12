@@ -3,7 +3,7 @@
 import { BookOpen, X } from "lucide-react";
 
 import { useSourcePage } from "@/hooks/use-source-page";
-import type { ChatSource } from "@/lib/api/types";
+import type { ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,7 @@ export function SourceViewerPanel({
   onClose,
 }: {
   /** The page to show; `null` renders the panel's empty state. */
-  source: ChatSource | null;
+  source: ViewerSource | null;
   passage?: string | null;
   onClose: () => void;
 }) {

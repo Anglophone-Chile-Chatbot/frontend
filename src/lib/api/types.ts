@@ -45,6 +45,26 @@ export interface ChatSource {
 }
 
 /**
+ * What the document viewer needs to open a page.
+ *
+ * A superset of the viewer's real requirement, and deliberately *not*
+ * `ChatSource` itself: the viewer opens from three places, and only two of
+ * them come from the chat wire. A citation chip and a search hit both carry a
+ * real `page_number`; a catalogue row does not — it knows which page id to
+ * open but not what that page is numbered, because `/documents` returns issue
+ * metadata rather than page metadata.
+ *
+ * `page_number` is therefore nullable here while staying required on
+ * `ChatSource`, which keeps the wire type an honest mirror of the backend
+ * schema. The viewers render `source.page_number ?? page.page_number`, so null
+ * means "use the number from the page you fetched" rather than a missing
+ * value they have to defend against.
+ */
+export type ViewerSource = Omit<ChatSource, "page_number"> & {
+  page_number: number | null;
+};
+
+/**
  * Server-Sent Event frames emitted by `POST /api/v1/chat`.
  *
  * Order is: one `sources`, then zero or more `delta`, then exactly one
@@ -71,6 +91,16 @@ export interface DocumentSummary {
    * retrieves nothing.
    */
   page_count: number;
+  /**
+   * The document's lowest-numbered page, for opening it in the viewer.
+   *
+   * The viewer is keyed on a page id (`GET /api/pages/{id}` takes a page UUID,
+   * not a document UUID), so this is what makes a catalogue row openable.
+   * Null exactly when `page_count` is 0 — the backend derives both from the
+   * same join, so they cannot disagree. Treat null as "not openable" rather
+   * than assuming a page 1 exists.
+   */
+  first_page_id: string | null;
 }
 
 /** Mirrors `DocumentListResponse` in `backend/app/schemas/documents.py`. */
