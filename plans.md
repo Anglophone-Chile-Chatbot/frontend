@@ -214,9 +214,18 @@ stale. Always check local UI at `http://localhost:3417`, never bare `localhost:3
 
 ## AUDIT FIXES 2026-08-11 — do these in order, A1 first
 
-> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). Backend **B1**
-> is ranked ahead of A1 globally. A1 is the first *frontend* item, not necessarily the next thing
-> to do overall — check the root table first.
+> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). A1 and A2 are
+> done; **A3 is now the next item overall** — but it is a new visible surface, so **ask Shakib
+> before styling it.**
+
+> **`src/instrumentation.ts` lives here but is tracked as backend B2** (done 2026-08-12) — that is
+> not a filing mistake. B2 is "connection reuse to Oracle", and the connection is opened by *this*
+> repo's Route Handlers, so the fix had to land here. Full write-up and measurements are in
+> `backend/plans.md` B2. What matters if you touch it: it pins undici's idle-socket timeout to
+> **60s**, deliberately just under nginx's `keepalive_timeout 65` on Oracle. **Those two numbers are
+> a pair** — raising this one without raising nginx's first causes intermittent `ECONNRESET`, because
+> undici would hand out a socket the server had already closed. Node's `fetch` pools connections on
+> its own; the timeout was the whole bug, so do not "simplify" this into a per-request agent.
 
 Each item below is self-contained: the symptom, the measured evidence, the exact file, the reason
 the obvious fix is wrong, and how to know it worked. Pick the first unchecked one and finish it.
