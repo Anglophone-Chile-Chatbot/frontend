@@ -385,6 +385,16 @@ Do not batch them — A1 alone is a visible win.
       chars) and `has_image: true`. Both scans serve as `image/webp` (I2 intact). `/archive`'s
       initial HTML carries the catalogue's loading state, confirming it is mounted on the idle path.
 
+      **Deployed and verified in production on `frontend-gamma-dun-82`:** the catalogue is in the
+      served HTML, `/api/documents` returns both `first_page_id`s, and the full path resolves to
+      page 1 of 16 with a `image/webp` scan. **`frontend-theta-bay-62` was still serving the older
+      build at the time of checking** — worth a glance at which host is canonical, since the plans
+      have quoted both as "the deployed site" before. Separately, `npx vercel ls` in this repo
+      resolves to a *different* project (`khandokar-shakibs-projects-7b70d891`, newest deploy 22h
+      old) than the one recorded above (`team_4g2iLkOnKTKR2R7quL1cwne4`) — so the CLI's local link
+      does not match the project the plans document. Not chased down here; noted so it is not
+      mistaken for a deploy failure next time.
+
       **Not verified in a real browser — same blocker as A1.** The Playwright MCP profile was locked
       by another session again ("Browser is already in use"), so nobody has *seen* these rows at
       375px or clicked one. The data path is proven and the tap-target/responsive properties were
