@@ -222,8 +222,42 @@ Each item below is self-contained: the symptom, the measured evidence, the exact
 the obvious fix is wrong, and how to know it worked. Pick the first unchecked one and finish it.
 Do not batch them — A1 alone is a visible win.
 
-### A1 — Citation highlight silently misses on 78% of chunks  ← START HERE
-- [ ] **Symptom Shakib reported:** "the reference links are not always clear, I'm pretty sure there
+### A1 — Citation highlight silently misses on 78% of chunks — DONE 2026-08-11
+- [x] **Fixed. 22% → 100%** on the same 112-chunk live sample the audit measured. New file
+      `src/lib/passage-match.ts` holds the ladder; `source-viewer-body.tsx` calls it instead of the
+      one-shot `indexOf`. tsc + eslint + `next build` all clean.
+
+      **The plan predicted 61% and the two extra rungs closed the rest.** Rungs 1–3 landed as
+      written in the spec below (22% → 61% → 85%). The remaining 39% was *not* only "table rewrites"
+      as the audit guessed — measuring where each failure diverged showed a second, unrecorded
+      cause: `_merge_tiny()` in `chunking.py` folds a short chunk into its predecessor with `\n\n`
+      and **drops the heading that separated them**, so the page carries a `### SOLE AGENTS FOR THE
+      FAMOUS WHISKY` that the chunk never had. Two rungs handle it:
+      - **rung 4, heading-skipping** — allow `#` inside the inter-word gap. Recovers 8 (→92%).
+      - **rung 5, leading anchor** — the last 9 drop whole heading *words*, not just markers, so no
+        gap pattern can bridge them. Anchors on the first 80 non-whitespace chars and highlights to
+        the end of that paragraph. Measured spans are 18–70% of the chunk, so it never runs away.
+
+      **Verified beyond the match count**, because a matcher that highlights the *wrong* paragraph
+      would also score 100%: all 112 highlights were checked to begin on the correct text (0 wrong
+      starts), all 112 produce a real non-trivial `<mark>` when pushed through the actual
+      `parsePageBlocks` + `Highlighted` offset mapping (0 empty marks), 0 invalid offsets, 0.45ms
+      per chunk.
+
+      **Not verified in a real browser.** The Playwright MCP profile was locked by another session
+      all pass, so the "cross-check 3 chips by hand at 375px and lg" step never ran. The component
+      path was exercised by rendering `parsePageBlocks` + the `Highlighted` offset logic against
+      real corpus data instead, which covers the same failure mode, but it is not the same as
+      seeing a chip clicked. **Worth one manual look next session.**
+
+      `infra/scripts/audit_metrics.py highlight` now reports all five rungs separately rather than
+      one blurry percentage, so a future regression names the rung that lost ground. It mirrors the
+      TypeScript rung-for-rung and both were confirmed to agree.
+
+<details>
+<summary>Original spec, kept for context</summary>
+
+- **Symptom Shakib reported:** "the reference links are not always clear, I'm pretty sure there
       are issues with references when clicked on." Clicking a citation opens the right page, but
       nothing is highlighted and the page does not scroll to the passage, so it looks like the
       citation pointed nowhere.
@@ -273,18 +307,31 @@ Do not batch them — A1 alone is a visible win.
   least 3 chips by hand in the browser at 375px and at `lg`, since only that proves the ladder in
   the component actually fires.
 
-### A2 — Nothing tells the reader when a highlight could not be found
-- [ ] Once A1 lands, some passages will still not match (tables especially). Today that failure is
-      **completely invisible** — the page just opens, unhighlighted, indistinguishable from a broken
-      link. That is exactly what made Shakib distrust the references.
+</details>
 
-  **Fix:** when the ladder in A1 falls through to "no match", show one quiet line at the top of the
-  text body — e.g. *"Showing the full page; the exact cited passage could not be located on it."*
-  Muted, one line, no icon, no colour. It converts a silent failure into an honest statement.
-  Follows the existing `EmptyNote` voice already in `source-viewer-body.tsx`.
+### A2 — Nothing tells the reader when a highlight could not be found — DONE 2026-08-11
+- [x] **Done in the same pass as A1**, because the ladder already knows which rung matched — the
+      honest note was one `MatchNote` component away, and splitting it into its own session would
+      have meant re-deriving that context for nothing.
 
-  **Done when:** a chunk known to be a table (see A1 measurement) opens with the note visible, and a
-  chunk that matches shows no note.
+      **Deliberately more nuanced than the spec asked for.** The spec assumed two states (matched /
+      not matched), but the ladder produces three meaningfully different ones, and collapsing them
+      would itself be a small dishonesty:
+      - `exact` / `prefix` / `whitespace` — verbatim match. **No note.** The highlight is the
+        message; a "found it" banner on the common case is noise.
+      - `heading` / `anchor` — approximate. *"Showing the full page — the highlight below marks
+        approximately where the citation begins."* Tells the reader not to over-trust the span.
+      - no match — *"Showing the full page — the exact cited passage could not be located on it."*
+
+      So the note's presence always means "trust this a little less", which is the property that
+      makes it worth reading at all. Muted, one line, no icon, no colour, hairline left rule —
+      follows the existing `EmptyNote` voice. Only rendered when a `passage` was actually requested,
+      so opening a page from a search result (no citation) correctly shows nothing.
+
+      **Caveat:** on the current 2-document corpus the ladder matches 100%, so the *no-match* string
+      has never rendered against real data — only the approximate one (17 of 112 chunks) is
+      reachable today. That branch is one ternary and fires whenever `findPassage` returns null, but
+      it is honest to call it unproven on real rows until a harder corpus arrives.
 
 ### A3 — There is still no way to browse documents without searching first
 - [ ] Raised twice before and still true: the **only** paths into the viewer are (a) clicking a

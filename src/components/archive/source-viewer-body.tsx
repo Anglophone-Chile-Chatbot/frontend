@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import type { PageDetail } from "@/lib/api/types";
 import { parsePageBlocks, type PageBlock } from "@/lib/page-blocks";
+import { findPassage, type MatchKind } from "@/lib/passage-match";
 import { cn } from "@/lib/utils";
 
 /**
@@ -107,10 +108,15 @@ function ViewerTabs({
  * as a text dump, not a digitised page. `parsePageBlocks` recovers the heading
  * and paragraph structure so it can be typeset properly.
  *
- * Matching is exact-substring first. OCR text and the stored chunk come from
- * the same extraction, so an exact match is the common case; when it fails
- * (the chunk spans a page break, or was normalized) the text still renders,
- * just without a highlight. Nothing is faked.
+ * Matching goes through `findPassage`, which climbs a ladder from exact
+ * substring down to an approximate leading-anchor match. The stored chunk is
+ * deliberately not a copy of the page — the ingest chunker prepends section
+ * headings and re-joins wrapped columns — so a single exact `indexOf` found
+ * only 22% of passages and silently highlighted nothing on the rest. See
+ * `lib/passage-match.ts` for the measured rates and why each rung exists.
+ *
+ * When even the last rung fails, the page still renders and says so in one
+ * quiet line rather than looking like a citation that pointed nowhere.
  *
  * The highlight works on offsets into the *raw* string, and blocks carry their
  * source ranges, so structure and highlighting are derived from one source of
@@ -122,17 +128,12 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
   const blocks = useMemo(() => parsePageBlocks(text), [text]);
 
   // The cited passage as a range in the raw text; null when absent or unmatched.
-  const range = useMemo(() => {
-    if (!text || !passage) return null;
-    const needle = passage.trim();
-    if (!needle) return null;
-    const index = text.indexOf(needle);
-    return index === -1 ? null : { start: index, end: index + needle.length };
-  }, [text, passage]);
+  const match = useMemo(() => findPassage(text, passage), [text, passage]);
+  const range = match ? { start: match.start, end: match.end } : null;
 
   useEffect(() => {
     markRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
-  }, [range, blocks]);
+  }, [match, blocks]);
 
   if (!text || text.trim().length === 0) {
     return (
@@ -145,6 +146,7 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
 
   return (
     <article className="font-text-serif measure pt-4 text-[0.9375rem] leading-[1.7] text-foreground/90">
+      {passage && <MatchNote kind={match?.kind ?? null} />}
       {blocks.map((block, index) => {
         const key = `${block.start}-${index}`;
 
@@ -174,6 +176,35 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
         );
       })}
     </article>
+  );
+}
+
+/**
+ * An honest line about how well the cited passage could be located.
+ *
+ * A silent miss is what made citations feel broken: the page opened,
+ * unhighlighted, indistinguishable from a link that pointed nowhere. Saying so
+ * costs one muted line and converts a silent failure into a statement the
+ * reader can act on — they know to scan the page themselves rather than assume
+ * the citation was wrong.
+ *
+ * An exact or prefix-stripped match says nothing at all — the highlight is the
+ * message, and a "found it" banner on the common case would be noise. Only the
+ * two approximate rungs and the outright miss speak up, so the note's presence
+ * always means "trust this a little less".
+ */
+function MatchNote({ kind }: { kind: MatchKind | null }) {
+  if (kind === "exact" || kind === "prefix" || kind === "whitespace") return null;
+
+  const body =
+    kind === null
+      ? "Showing the full page — the exact cited passage could not be located on it."
+      : "Showing the full page — the highlight below marks approximately where the citation begins.";
+
+  return (
+    <p className="mb-4 border-l-2 border-border/70 pl-3 font-sans text-[0.75rem] leading-relaxed text-muted-foreground">
+      {body}
+    </p>
   );
 }
 
