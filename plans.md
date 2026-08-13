@@ -447,8 +447,21 @@ Do not batch them — A1 alone is a visible win.
       nothing", which is the precise failure A4 exists to remove.
 
       Verified: `tsc --noEmit`, `eslint` and `next build` all clean.
-      **Live browser re-check and the re-quoted chat-path highlight rate are in W3 below** — the
-      100% from A1 is search-path only and must not be quoted as covering chat.
+
+      **Measured live against the deployed Oracle backend, on the chat path specifically.** Four
+      questions → 19 unique chunks across 12 pages, all 19 carrying real `content`; A1's five-rung
+      ladder run over them gives **100%, 0 unmatched** — exact 21% · +prefix 58% · +whitespace 74% ·
+      +heading 79% · +anchor 100%. The rung split independently reproduces the search-path shape A1
+      measured (22% / 61%), which is why this reads as the ladder behaving identically on both paths
+      rather than a coincidental total.
+      **So the old caveat is retired: the 100% is no longer search-path only.** Both paths are now
+      measured separately and both are 100% — but keep quoting them *as two numbers*, since they
+      came from two different samples.
+
+      **One state still unproven, honestly:** 0 of 19 chat chunks failed to match, so A2's
+      *no-match* note remains unreachable against real data on this 2-document corpus. It is one
+      ternary firing on `findPassage` returning null; calling it proven would overstate the
+      evidence. C3's nine PDFs are what would exercise it.
 
 <details>
 <summary>Original A4 write-up, kept for the diagnosis</summary>
