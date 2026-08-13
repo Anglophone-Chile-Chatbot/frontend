@@ -84,12 +84,14 @@ harmless, and Phase 2 may want them.
       `BACKEND_API_URL="http://129.80.3.40/api/v1"` to `.env.local`; `/api/documents` now returns a
       real `200 {"total":0,"results":[]}` instead of a 500. Deliberately **not** `NEXT_PUBLIC_` — only
       the server should know the origin IP.
-- [ ] **Still open: same var in Vercel.** Production scope, `http://129.80.3.40/api/v1`, then
-      redeploy — unverified whether it's already set there. Vercel is HTTPS and Oracle is plain HTTP,
-      but that's a *server-to-server* call, so no browser mixed-content warning; it's just not
-      encrypted origin-side, the accepted Phase 1 trade-off from the no-domain/no-Cloudflare decision.
-      Every question will keep answering "nothing in the archive" until the OCR pilot below lands
-      real rows — that's correct behaviour against an empty DB, not a bug.
+- [x] **DONE — `BACKEND_API_URL` IS SET IN VERCEL, since 2026-08-11. Do not re-raise this.**
+      Re-verified live 2026-08-12 and again 2026-08-13: the deployed site returns both real documents
+      through `/api/documents`. The "still open / unverified" text that sat here was stale from the
+      day it was set and caused the same non-issue to be raised at Shakib in two separate sessions —
+      the exact failure the docs-update-same-turn rule exists to prevent. Vercel is HTTPS and Oracle
+      is plain HTTP, but that is a *server-to-server* call, so there is no browser mixed-content
+      warning; it is simply unencrypted origin-side, the accepted Phase 1 trade-off from the
+      no-domain/no-Cloudflare decision.
 - [ ] Date/publication filters on the archive browser — the backend `/search` doesn't accept
       those params yet, so it's a two-repo change, not frontend-only.
 - [ ] react-pdf viewer: currently the viewer shows extracted text + scan image. Nothing renders
