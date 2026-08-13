@@ -32,8 +32,15 @@ export interface SearchResponse {
 /**
  * A retrieved chunk as sent on the chat stream's `sources` event.
  *
- * This is `SearchResult` minus `content` and `rank` — see `_event_stream` in
- * `backend/app/api/v1/chat.py`, which projects only the citation fields.
+ * This is `SearchResult` minus `rank` — see `_event_stream` in
+ * `backend/app/api/v1/chat.py`, which projects the citation fields plus the
+ * chunk text.
+ *
+ * `content` was added 2026-08-13 (B5/A4). Without it a chat citation opened
+ * the correct page and highlighted nothing, because the match ladder had no
+ * passage to match — and the honest-miss note is gated on a non-null passage,
+ * so the reader was not even told. It is the same text `/search` returns,
+ * which is why highlighting worked in the archive browser and only there.
  */
 export interface ChatSource {
   chunk_id: string;
@@ -42,6 +49,8 @@ export interface ChatSource {
   page_number: number;
   publication: string | null;
   issue_date: string | null;
+  /** Full chunk text — the passage to highlight when this citation is opened. */
+  content: string;
 }
 
 /**
@@ -59,8 +68,14 @@ export interface ChatSource {
  * schema. The viewers render `source.page_number ?? page.page_number`, so null
  * means "use the number from the page you fetched" rather than a missing
  * value they have to defend against.
+ *
+ * `content` is dropped for the same reason. The viewers take the text to
+ * highlight as a separate `passage` prop and never read it off the source —
+ * which is what lets the catalogue open a page with no passage at all. Keeping
+ * it required here would force the browse path to invent chunk text it does
+ * not have, exactly the fake-data shape this split exists to prevent.
  */
-export type ViewerSource = Omit<ChatSource, "page_number"> & {
+export type ViewerSource = Omit<ChatSource, "page_number" | "content"> & {
   page_number: number | null;
 };
 

@@ -216,10 +216,15 @@ stale. Always check local UI at `http://localhost:3417`, never bare `localhost:3
 
 ## AUDIT FIXES 2026-08-11 — do these in order, A1 first
 
-> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). A1, A2 and A3 are
-> all done. **No frontend audit items remain.** The next items overall are backend **B3**
-> (figures/images schema — settle before the bulk GPU run, it changes the ingest contract) and
-> **B4** (one document crowding the top-k), then infra **I1**, which is blocked on a domain.
+> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). A1, A2, A3 and
+> **A4** are all done — A4 (2026-08-13, with backend B5) closed the citation→highlight loop, which
+> was the last item breaking the core research journey. **No frontend audit items remain.**
+>
+> **The next work is deliberately not in this repo.** Per the 2026-08-13 sequencing decision, the
+> website stops here and attention moves to the OCR pipeline audit (C-series, then D-series, in the
+> root `plans.md`). W2/W3/W4 in the root's WEB CLOSEOUT stay written up and ready, but they are
+> polish on a surface whose *content contract* is about to change — tables, figures and possibly
+> page furniture are all about to start existing — so doing them now risks doing them twice.
 
 > **`src/instrumentation.ts` lives here but is tracked as backend B2** (done 2026-08-12) — that is
 > not a filing mistake. B2 is "connection reuse to Oracle", and the connection is opened by *this*
@@ -415,8 +420,40 @@ Do not batch them — A1 alone is a visible win.
       the 44px rule** — cosmetic, not filed as a bug, but noted so it is a decision rather than an
       oversight.
 
-### A4 — Chat citations can never highlight: the SSE `sources` frame carries no chunk text
-- [ ] **Found 2026-08-13 by the browser cross-check that A1/A2 twice could not run** — which is
+### A4 — Chat citations now highlight: the SSE `sources` frame carries chunk text — DONE 2026-08-13
+- [x] **Done, with the backend half (B5).** Shakib chose full chunk `content` over a ~200-char
+      excerpt. The chip now opens the page *and* marks the cited passage, so A1's ladder finally
+      runs on the path most readers actually use.
+
+      **This was not the "one prop" the plan predicted, and the extra work is the interesting part.**
+      Passing `active?.content ?? null` in `chat-view.tsx` was indeed one line. But:
+      - **`ViewerSource` had to explicitly `Omit<..., "content">`.** It derives from `ChatSource`,
+        and `archive-browser.tsx` hand-builds one for the catalogue/browse path, where there is no
+        chunk and no cited text. Inheriting a required `content` would have forced that call site to
+        invent chunk text — a fake-data shape the no-placeholders rule forbids outright. The viewers
+        take `passage` as a separate prop and never read `source.content`, so the omission is free
+        and keeps the browse path honest. This mirrors exactly why `page_number` was made nullable
+        here in A3: the wire type stays a true mirror, the viewer type describes the viewer's needs.
+      - **The `ChatSource` doc comment said "`SearchResult` minus `content`", which the backend
+        change made false.** Corrected in the same pass. A wire type whose comment lies is how the
+        next session gets misled about the contract.
+
+      **A real defect found while doing this, not in any plan.** `isChatSource` in `lib/api/sse.ts`
+      is the runtime guard between untrusted SSE payloads and code that trusts the declared types.
+      It checked four fields, so an object with **no `content`** would pass as a `ChatSource` and
+      TypeScript would then believe a `string` was present where there was `undefined` — the
+      highlight failing at the point of use, far from the cause. It now checks `content` too, so
+      such a source is dropped at the boundary: "no chip" rather than "a chip that opens and marks
+      nothing", which is the precise failure A4 exists to remove.
+
+      Verified: `tsc --noEmit`, `eslint` and `next build` all clean.
+      **Live browser re-check and the re-quoted chat-path highlight rate are in W3 below** — the
+      100% from A1 is search-path only and must not be quoted as covering chat.
+
+<details>
+<summary>Original A4 write-up, kept for the diagnosis</summary>
+
+- **Found 2026-08-13 by the browser cross-check that A1/A2 twice could not run** — which is
       precisely the bug class those checks exist to catch, and it survived two passes of data-path
       verification because every piece works correctly in isolation.
 
@@ -446,6 +483,8 @@ Do not batch them — A1 alone is a visible win.
       trade against B2's whole purpose, so it is written down rather than decided unilaterally.
       Cheaper alternative if the payload matters: send a short leading excerpt (~200 chars) instead
       of full content, which is all the match ladder's first rung actually needs.
+
+</details>
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer

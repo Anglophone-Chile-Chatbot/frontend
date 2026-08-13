@@ -57,7 +57,17 @@ function parseFrame(frame: string): ChatStreamEvent | null {
   return toEvent(name, data);
 }
 
-/** Structural check for one entry of the `sources` array. */
+/**
+ * Structural check for one entry of the `sources` array.
+ *
+ * `content` is checked like the rest, not treated as optional: it is what the
+ * viewer highlights a citation with, and this guard is the only thing standing
+ * between the wire and code that trusts the field is a `string`. Leaving it
+ * unchecked would let a backend that stopped sending it produce sources whose
+ * declared type is a lie — the highlight would then fail at the point of use,
+ * far from the cause. A source without content is dropped here instead, which
+ * degrades to "no chip" rather than to a chip that opens and marks nothing.
+ */
 function isChatSource(value: unknown): value is ChatSource {
   if (typeof value !== "object" || value === null) return false;
   const source = value as Record<string, unknown>;
@@ -65,7 +75,8 @@ function isChatSource(value: unknown): value is ChatSource {
     typeof source.chunk_id === "string" &&
     typeof source.page_id === "string" &&
     typeof source.document_id === "string" &&
-    typeof source.page_number === "number"
+    typeof source.page_number === "number" &&
+    typeof source.content === "string"
   );
 }
 

@@ -103,20 +103,26 @@ export function ChatView() {
         onChange={setScope}
       />
 
-      {/* No passage to highlight from a chat citation: the stream's `sources`
-          event carries citation metadata but not chunk text. Search results do
-          carry content, so the archive browser passes a passage through.
+      {/* The cited chunk's own text is the passage to highlight. It rides on
+          the stream's `sources` event (added 2026-08-13 — before that this was
+          hardcoded null, so every chat citation opened the right page and
+          marked nothing, and the honest-miss note could not fire either
+          because it is gated on a non-null passage).
           Below `lg`: sheet. From `lg`: SourceViewerPanel takes over as a
           docked column and this one hides itself — see SourceViewer's own
           comment for why both exist rather than one responsive component. */}
       <SourceViewer
         source={active}
-        passage={null}
+        passage={active?.content ?? null}
         onOpenChange={(open) => {
           if (!open) setActive(null);
         }}
       />
-      <SourceViewerPanel source={active} passage={null} onClose={() => setActive(null)} />
+      <SourceViewerPanel
+        source={active}
+        passage={active?.content ?? null}
+        onClose={() => setActive(null)}
+      />
     </div>
   );
 }
