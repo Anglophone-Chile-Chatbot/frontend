@@ -254,11 +254,21 @@ Do not batch them — A1 alone is a visible win.
       `parsePageBlocks` + `Highlighted` offset mapping (0 empty marks), 0 invalid offsets, 0.45ms
       per chunk.
 
-      **Not verified in a real browser.** The Playwright MCP profile was locked by another session
-      all pass, so the "cross-check 3 chips by hand at 375px and lg" step never ran. The component
-      path was exercised by rendering `parsePageBlocks` + the `Highlighted` offset logic against
-      real corpus data instead, which covers the same failure mode, but it is not the same as
-      seeing a chip clicked. **Worth one manual look next session.**
+      **VERIFIED IN A REAL BROWSER 2026-08-13 — and it found something the data-path check could
+      not.** The chip was clicked at 375px against the live Oracle backend: it opened the correct
+      page (Valparaiso English Mercury, Page 4 of 4, the MARITIME INTELLIGENCE / DEPARTURES columns
+      the answer cited). No raw `[CITE:` or UUID leaked into the prose, and there is no horizontal
+      scroll. **But zero `<mark>` elements rendered, and no MatchNote either** — see A4 below. The
+      ladder itself is not at fault; it is never given a passage on the chat path.
+
+      **Why the two-session blocker was never actually a locked profile.** Both previous sessions
+      reported "Browser is already in use" and moved on. The real cause was an **orphaned Chrome
+      (PID 62005) left running since Tue Aug 11 13:38**, parented to a `playwright-mcp` node process
+      from the A1/A2 session that was never torn down. It held the profile for two days. `ps aux |
+      grep -i chrome` misses it — the process name is `Google Chrome for Testing`. The reliable
+      check is `lsof +D ~/Library/Caches/ms-playwright-mcp/<profile>`, which names the holding PID;
+      killing the parent MCP process releases it. Not a stale lock file — do not delete
+      `SingletonLock` and assume that fixes it.
 
       `infra/scripts/audit_metrics.py highlight` now reports all five rungs separately rather than
       one blurry percentage, so a future regression names the rung that lost ground. It mirrors the
@@ -395,12 +405,45 @@ Do not batch them — A1 alone is a visible win.
       does not match the project the plans document. Not chased down here; noted so it is not
       mistaken for a deploy failure next time.
 
-      **Not verified in a real browser — same blocker as A1.** The Playwright MCP profile was locked
-      by another session again ("Browser is already in use"), so nobody has *seen* these rows at
-      375px or clicked one. The data path is proven and the tap-target/responsive properties were
-      checked structurally, but the visual check is still outstanding. **This is now the second
-      pass that could not do it** — worth doing by hand next session, together with A1's three
-      citation chips.
+      **VERIFIED IN A REAL BROWSER 2026-08-13.** `/archive` at 375px against the live backend: both
+      issues listed, rows measure **343×77 and 343×97** (comfortably over the 44px tap minimum),
+      **no horizontal scroll** (`scrollWidth === clientWidth === 375`), and clicking the Mercury row
+      opened it in the viewer with real 1844 tariff text at a readable measure. A3 is now seen, not
+      just inferred. The nav links (`Ask` 43×40, `Archive` 67×40) are **40px tall, marginally under
+      the 44px rule** — cosmetic, not filed as a bug, but noted so it is a decision rather than an
+      oversight.
+
+### A4 — Chat citations can never highlight: the SSE `sources` frame carries no chunk text
+- [ ] **Found 2026-08-13 by the browser cross-check that A1/A2 twice could not run** — which is
+      precisely the bug class those checks exist to catch, and it survived two passes of data-path
+      verification because every piece works correctly in isolation.
+
+      **Measured:** clicking a chat citation chip opens the right page, but renders **zero `<mark>`
+      elements and no MatchNote**. Neither of A2's three states appears — not "approximately", not
+      "could not be located", not the silent verbatim case.
+
+      **Cause, confirmed against the live server, not inferred from code.** `chat-view.tsx` passes
+      `passage={null}` to both `SourceViewer` (line ~114) and `SourceViewerPanel` (line ~119), and
+      `source-viewer-body.tsx` gates the note on `{passage && <MatchNote …/>}` — so a null passage
+      produces silence rather than an honest miss. The prop is hardcoded because there is genuinely
+      nothing to pass: `curl`ing `POST /api/v1/chat` shows the `sources` frame carries exactly
+      `chunk_id`, `page_id`, `document_id`, `page_number`, `publication`, `issue_date` — **no
+      `content`**. The existing code comment at line 106 says this and is accurate.
+      `archive-browser.tsx` passes a real passage because `/search` results *do* carry content,
+      which is why highlighting works there and only there.
+
+      **So A1's 22%→100% ladder never runs on the chat path** — the primary way anyone reaches a
+      citation. The measured 100% was against search-result passages, and that number does not
+      describe chat at all. Do not quote it as if it covers both.
+
+      **The fix is backend-side and is one line**, but it is not mine to take: `_event_stream` in
+      `backend/app/api/v1/chat.py` builds the sources dict from `SearchResult`, which **already
+      carries `content`** — it is simply omitted. Adding it costs roughly 3KB per chat response
+      (6 chunks of chunk text) on every request, and it changes the SSE contract that
+      `frontend/src/lib/citations.ts` consumes. **Shakib's call** — this is a real payload/latency
+      trade against B2's whole purpose, so it is written down rather than decided unilaterally.
+      Cheaper alternative if the payload matters: send a short leading excerpt (~200 chars) instead
+      of full content, which is all the match ladder's first rung actually needs.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
