@@ -141,6 +141,40 @@ export interface ChatRequestBody {
 /** Mirrors `MAX_SCOPE_DOCUMENTS` in `backend/app/schemas/chat.py`. */
 export const MAX_SCOPE_DOCUMENTS = 50;
 
+/**
+ * One cropped image on a page — mirrors `PageFigure` in
+ * `backend/app/schemas/pages.py`.
+ *
+ * `bbox` is `[x1, y1, x2, y2]` as page-relative fractions (0–1), which is what
+ * lets it map straight onto a CSS percentage overlay at any render width. It is
+ * deliberately not OCR pixels: the served scan is rescaled to 1630px, so pixels
+ * would address an image nobody looks at.
+ *
+ * **Read `block_type` before sizing anything.** The bbox means two different
+ * things depending on it, and the difference is large enough to look like a bug:
+ *
+ * - `Picture` / `Figure` (56 of 66 live figures) — the box bounds the *image*.
+ *   Measured against the actual crops, its aspect ratio agrees to a median 0.6%,
+ *   so drawing the crop into the box is faithful.
+ * - `Text` / `ComplexRegion` / `Table` (the other 10) — the box bounds the
+ *   enclosing *region*: a whole advertisement, an engraving plus its ad copy.
+ *   Aspect ratio diverges by a median ~56%, and one `Text` box is 1.5% of the
+ *   page tall while its crop is a multi-line advertiser nameplate. These are
+ *   "where this belongs on the page", not the image's frame.
+ *
+ * So a region-typed box is honest as a *position* and misleading as a *frame*,
+ * which is why the overlay marks those without stretching a crop into them.
+ */
+export interface PageFigure {
+  figure_id: string;
+  /** Reading-order position within the page, 0-based. */
+  figure_index: number;
+  /** `[x1, y1, x2, y2]` as fractions of page width/height. */
+  bbox: number[];
+  /** OCR block type this crop came from — see the caveat above. Null if unknown. */
+  block_type: string | null;
+}
+
 /** Mirrors `PageDetail` in `backend/app/schemas/pages.py`. */
 export interface PageDetail {
   page_id: string;
@@ -155,6 +189,14 @@ export interface PageDetail {
   /** True when a scan image exists on disk for this page. */
   has_image: boolean;
   document_page_count: number;
+  /**
+   * Cropped figures on this page, in reading order.
+   *
+   * Optional on this type rather than required: the backend defaults it to `[]`,
+   * but a page ingested before the figure contract landed carries none, and the
+   * viewer must not assume the array exists.
+   */
+  figures?: PageFigure[];
 }
 
 /** Standard backend error body: `{ "error": "...", "code": "..." }`. */

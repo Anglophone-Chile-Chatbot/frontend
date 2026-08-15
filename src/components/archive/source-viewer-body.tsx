@@ -1,9 +1,15 @@
 "use client";
 
 import { FileText, Image as ImageIcon, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { PageDetail } from "@/lib/api/types";
+import {
+  FigureGallery,
+  FigureLightbox,
+  FigureOverlay,
+  isTightBox,
+} from "@/components/archive/page-figures";
+import type { PageDetail, PageFigure } from "@/lib/api/types";
 import { parsePageBlocks, type PageBlock } from "@/lib/page-blocks";
 import { findPassage, type MatchKind } from "@/lib/passage-match";
 import { cn } from "@/lib/utils";
@@ -28,19 +34,46 @@ export function SourceViewerBody({
   onTabChange: (tab: "text" | "image") => void;
   passage: string | null;
 }) {
+  // Which figure is open full-size. Held here rather than in either tab so the
+  // scan overlay and the text gallery open the same viewer, and so switching
+  // tabs behind an open figure cannot leave two of them mounted.
+  const [zoomed, setZoomed] = useState<PageFigure | null>(null);
+
+  const figures = page?.figures ?? [];
+
+  // Close on page change: a figure id belongs to the page it came from, and a
+  // stale one would keep an unrelated crop open over the new page. Reset during
+  // render rather than in an effect — the same pattern `use-source-page` uses
+  // for the page itself — so the new page never paints with the old page's
+  // figure open for one frame.
+  const [zoomedFor, setZoomedFor] = useState<string | null>(page?.page_id ?? null);
+  if ((page?.page_id ?? null) !== zoomedFor) {
+    setZoomedFor(page?.page_id ?? null);
+    setZoomed(null);
+  }
+
   return (
     <>
       <ViewerTabs tab={tab} onChange={onTabChange} hasImage={page?.has_image ?? false} />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-5">
+      <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-5">
         {status === "loading" && <ViewerLoading />}
         {status === "error" && <ViewerError />}
         {status === "idle" &&
           page &&
           (tab === "text" ? (
-            <PageText text={page.raw_text} passage={passage} />
+            <>
+              <PageText text={page.raw_text} passage={passage} />
+              <FigureGallery figures={figures} onSelect={setZoomed} />
+            </>
           ) : (
-            <PageImage pageId={page.page_id} hasImage={page.has_image} />
+            <PageImage
+              pageId={page.page_id}
+              hasImage={page.has_image}
+              figures={figures}
+              onSelectFigure={setZoomed}
+            />
           ))}
+        {zoomed && <FigureLightbox figure={zoomed} onClose={() => setZoomed(null)} />}
       </div>
     </>
   );
@@ -169,6 +202,23 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
           );
         }
 
+        if (block.kind === "table") {
+          // A run of pipe rows the parser could not vouch for (no separator, or
+          // no body rows) keeps its raw lines and renders as prose. The ingest
+          // side already falls back this way rather than losing the words, and
+          // a broken table drawn as a broken table would be worse than the
+          // honest lines.
+          if (block.rows.length === 0) {
+            return (
+              <p key={key} className="mb-3 whitespace-pre-wrap last:mb-0">
+                <Highlighted block={block} range={range} markRef={markRef} />
+              </p>
+            );
+          }
+
+          return <PageTable key={key} block={block} range={range} markRef={markRef} />;
+        }
+
         return (
           <p key={key} className="mb-3 last:mb-0">
             <Highlighted block={block} range={range} markRef={markRef} />
@@ -176,6 +226,110 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
         );
       })}
     </article>
+  );
+}
+
+/**
+ * A pipe table from the page text, rendered as a real table.
+ *
+ * Before the ingest pipeline converted OCR `<table>` blocks to pipe rows, a
+ * shipping manifest arrived as `barque Artemis312MacdonaldLondon` with every
+ * column boundary gone. Those rows now survive, and this is the half that shows
+ * them as columns instead of raw `|` characters — 82 tables / 1195 rows across
+ * the live corpus.
+ *
+ * **The horizontal scroll is load-bearing, not a nicety.** The widest table in
+ * the corpus is an 18-column railway timetable; at 375px it cannot fit and must
+ * not be allowed to widen the page. The scroll container is the table's own, so
+ * the article around it never scrolls sideways.
+ *
+ * Highlighting is per row rather than per table because the chunker splits a
+ * long table across several chunks — a 93-row import schedule is cited in
+ * thirds — so marking the whole block would claim the citation covered rows it
+ * never did.
+ */
+function PageTable({
+  block,
+  range,
+  markRef,
+}: {
+  block: Extract<PageBlock, { kind: "table" }>;
+  range: { start: number; end: number } | null;
+  markRef: React.RefObject<HTMLElement | null>;
+}) {
+  // The first highlighted row is the scroll target; later ones must not steal
+  // the ref, or the viewer would jump to the end of a long cited table.
+  // Resolved up front rather than by mutating a flag while mapping — the rows
+  // are rendered in a callback, and a variable reassigned there is not a value
+  // React can depend on across renders.
+  const firstHitStart = block.rows.find(
+    (row) => range !== null && range.end > row.start && range.start < row.end,
+  )?.start;
+
+  return (
+    <div
+      className="-mx-1 mb-4 overflow-x-auto overscroll-x-contain px-1"
+      // Announced as a scrollable region so a keyboard user can reach the
+      // off-screen columns of an 18-column timetable at all.
+      tabIndex={0}
+      role="region"
+      aria-label="Table from this page"
+    >
+      <table className="w-max min-w-full border-collapse font-sans text-[0.8125rem] leading-snug">
+        {block.head && (
+          <thead>
+            <tr>
+              {block.head.map((cell, index) => (
+                <th
+                  key={index}
+                  scope="col"
+                  className="rule-b border-r border-border/40 px-2 py-1.5 text-left align-top font-medium text-foreground last:border-r-0"
+                >
+                  {cell}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {block.rows.map((row, rowIndex) => {
+            const hit = range !== null && range.end > row.start && range.start < row.end;
+            const claim = hit && row.start === firstHitStart;
+
+            return (
+              <tr
+                key={`${row.start}-${rowIndex}`}
+                // A callback ref rather than passing `markRef` straight through:
+                // React refs are invariant, so a `RefObject<HTMLElement>` is not
+                // assignable to a `<tr>`'s ref without an assertion. Assigning
+                // through the callback widens safely instead of lying about the
+                // element type.
+                ref={
+                  claim
+                    ? (node) => {
+                        markRef.current = node;
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "border-t border-border/30",
+                  hit && "bg-[var(--accent-subtle)]",
+                )}
+              >
+                {row.cells.map((cell, cellIndex) => (
+                  <td
+                    key={cellIndex}
+                    className="border-r border-border/30 px-2 py-1 align-top whitespace-nowrap text-foreground/90 last:border-r-0"
+                  >
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -252,8 +406,36 @@ function Highlighted({
   );
 }
 
-/** The scan image, or an honest note when none has been ingested. */
-function PageImage({ pageId, hasImage }: { pageId: string; hasImage: boolean }) {
+/**
+ * The scan image, or an honest note when none has been ingested.
+ *
+ * Figures are drawn over it at their recorded positions. The overlay wrapper is
+ * `relative` and sized by the image itself, so the percentage boxes track the
+ * scan at every width without measuring anything — which is the whole reason
+ * the ingest contract stores page-relative fractions instead of OCR pixels.
+ */
+function PageImage({
+  pageId,
+  hasImage,
+  figures,
+  onSelectFigure,
+}: {
+  pageId: string;
+  hasImage: boolean;
+  figures: PageFigure[];
+  onSelectFigure: (figure: PageFigure) => void;
+}) {
+  // The overlay is only correct once the image has laid out; painting it against
+  // a zero-height box first would flash the boxes in the wrong place. Reset
+  // during render on a page change, so a newly opened page cannot briefly show
+  // the previous page's boxes over a still-loading scan.
+  const [loaded, setLoaded] = useState(false);
+  const [loadedFor, setLoadedFor] = useState(pageId);
+  if (pageId !== loadedFor) {
+    setLoadedFor(pageId);
+    setLoaded(false);
+  }
+
   if (!hasImage) {
     return (
       <EmptyNote
@@ -265,15 +447,29 @@ function PageImage({ pageId, hasImage }: { pageId: string; hasImage: boolean }) 
 
   return (
     <div className="pt-4">
-      {/* Plain <img>: scans are proxied through a Route Handler and are not
-          known to the Next image optimizer at build time. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/pages/${pageId}/image`}
-        alt="Newspaper page scan"
-        className="animate-fade h-auto w-full rounded-md border bg-card"
-        loading="lazy"
-      />
+      <div className="relative">
+        {/* Plain <img>: scans are proxied through a Route Handler and are not
+            known to the Next image optimizer at build time. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/api/pages/${pageId}/image`}
+          alt="Newspaper page scan"
+          className="animate-fade block h-auto w-full rounded-md border bg-card"
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+        />
+        {loaded && <FigureOverlay figures={figures} onSelect={onSelectFigure} />}
+      </div>
+      {figures.length > 0 && (
+        <p className="mt-2 font-sans text-[0.6875rem] leading-relaxed text-muted-foreground">
+          {figures.length === 1
+            ? "One figure was found on this page — tap the marked area to see it."
+            : `${figures.length} figures were found on this page — tap a marked area to see one.`}
+          {/* Only explain the dashed style when one is actually on screen. */}
+          {figures.some((figure) => !isTightBox(figure)) &&
+            " A dashed outline marks the region a figure belongs to rather than the image’s exact edges."}
+        </p>
+      )}
     </div>
   );
 }

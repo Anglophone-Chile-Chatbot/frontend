@@ -355,10 +355,12 @@ Do not batch them — A1 alone is a visible win.
       follows the existing `EmptyNote` voice. Only rendered when a `passage` was actually requested,
       so opening a page from a search result (no citation) correctly shows nothing.
 
-      **Caveat:** on the current 2-document corpus the ladder matches 100%, so the *no-match* string
-      has never rendered against real data — only the approximate one (17 of 112 chunks) is
-      reachable today. That branch is one ternary and fires whenever `findPassage` returns null, but
-      it is honest to call it unproven on real rows until a harder corpus arrives.
+      **Caveat RESOLVED 2026-08-15 — the harder corpus arrived and the branch is reachable.** The
+      old caveat here said the *no-match* string had never rendered against real data because the
+      2-document corpus matched 100%. Re-measured over **all 1231 chunks of the 9-issue / 71-page
+      corpus: 99.9%, with exactly 1 unmatched chunk** — so the no-match branch now has a real row
+      that reaches it. The approximate rungs are also better represented (heading 55 + anchor 32 =
+      87 chunks) than the 17-of-112 the original sample showed.
 
 ### A3 — There is still no way to browse documents without searching first — DONE 2026-08-12
 - [x] **Done.** `/archive` now lists the archive before anything is typed, via a new
@@ -458,10 +460,12 @@ Do not batch them — A1 alone is a visible win.
       measured separately and both are 100% — but keep quoting them *as two numbers*, since they
       came from two different samples.
 
-      **One state still unproven, honestly:** 0 of 19 chat chunks failed to match, so A2's
-      *no-match* note remains unreachable against real data on this 2-document corpus. It is one
-      ternary firing on `findPassage` returning null; calling it proven would overstate the
-      evidence. C3's nine PDFs are what would exercise it.
+      **That last unproven state is now proven — corrected 2026-08-15.** When this was written, 0 of
+      19 chat chunks failed, so A2's *no-match* note was unreachable against real data. C3's nine
+      PDFs did exactly what this note predicted they would: over the full 1231-chunk corpus the
+      ladder matches **99.9% with 1 genuine miss**, so the branch fires on a real row. The
+      accompanying full-corpus check also confirmed **0 empty marks** — every match renders a real
+      `<mark>`, not a zero-length one.
 
 <details>
 <summary>Original A4 write-up, kept for the diagnosis</summary>
@@ -498,6 +502,87 @@ Do not batch them — A1 alone is a visible win.
       of full content, which is all the match ladder's first rung actually needs.
 
 </details>
+
+## A5 — Figures and tables render in the viewer — DONE 2026-08-15
+
+- [x] **The frontend half of the C4/B3 figure contract, plus the table rendering that was waiting on
+      the same contract.** Both are the same job — showing structure the OCR genuinely found — so
+      they shipped together. tsc, eslint and `next build` all clean; verified in a real browser at
+      375px and 1280px against the live Oracle backend.
+
+      **New:** `src/app/api/figures/[figureId]/image/route.ts` (proxy, so the Oracle IP still never
+      reaches the browser), `src/components/archive/page-figures.tsx`, `PageFigure` in
+      `lib/api/types.ts`, and table support in `lib/page-blocks.ts` +
+      `components/archive/source-viewer-body.tsx`.
+
+      ### Figures: overlay on the scan, gallery under the text — and why not inline
+
+      **Shakib chose this over interleaving crops into the transcription, after the measurement
+      below changed the recommendation.** The brief offered "at their recorded position over the
+      scan, **or** inline in the text flow". Inline turned out not to be buildable honestly:
+
+      **`raw_text` carries no image anchors at all — verified across all 71 pages, zero contain a
+      markdown image ref or an `<img>`.** `normalize.py`'s `_IMAGE_REF_RE` strips them at ingest. So
+      there is no recorded point in the text where a figure belongs, and choosing a slot from the
+      bbox's y-coordinate would be inventing placement — on a multi-column sheet, vertical position
+      and reading order are different things.
+
+      **The ordering DOES exist upstream, and this is the actionable finding (asked by Shakib,
+      2026-08-15).** `blocks.json` for Star of Chile p9 reads `SectionHeader` → `Picture` →
+      `Caption` ("GROUP OF ARAUCANIAN INDIANS.") → `Picture` → `Caption` ("THE CHAMPION FOOTBALL
+      TEAM…") — exact reading order, captions correctly paired with their own photograph. Chandra
+      resolves it; **our ingest discards it** when the block tree is flattened to a string. Fixing
+      that is a **re-ingest, not a re-OCR** (no GPU hour, no API credit) and it is an
+      *ingest-contract* change, so it wants settling before the ~5,000-page run for the same reason
+      C4 did. **Not started, not in this session's scope.**
+
+      **What the bbox is genuinely good for is position on the sheet, and that is verified.** The
+      two p9 boxes render at 0.295/0.104 and 0.145/0.486 — identical at 375px and 1280px, since a
+      percentage overlay is resolution-independent, which is exactly what page-relative fractions
+      were stored for. Visually they land tight on the Araucanian group and the football team.
+
+      **`block_type` is read before anything is sized**, per the contract's warning. `Picture` and
+      `Figure` (56 of 66) get a solid box — their bbox matches the crop's aspect ratio to a median
+      0.6%. The other 10 (`Text`, `ComplexRegion`, `Table`) bound the enclosing *region* and diverge
+      by a median ~56%, so they get a dashed box labelled "region on the page" and the crop is never
+      stretched to fill one. The explanatory line under the scan only appears when a dashed box is
+      actually on screen.
+
+      ### The two blank slivers, and a threshold picked from data rather than guessed
+
+      Star of Chile p13 carries two `Table`-typed "figures" that are **65×30px crops of a blank
+      horizontal rule**, while their bboxes claim an 863×563px railway timetable. Shakib chose to
+      hide them. The timetable itself is captured correctly in the page text and now renders as a
+      real 18-column table, so nothing is lost.
+
+      **The first threshold was wrong and the browser caught it** — 0.0004 of page area = 1434px²,
+      just *under* the slivers' 1950px², so both still rendered. Re-derived from the actual
+      distribution of all 66 crops: the slivers are 1,885 and 1,950 px², and **the next smallest
+      crop is 7,009 px²** (a genuine advertiser nameplate). A 3.6× gap separates artefact from
+      content, so the cut sits at **4,000 px²** with room either side. Confirmed in the browser: the
+      p13 gallery now collapses to nothing instead of showing two empty boxes.
+      Measured on the loaded image's natural size, because the API carries no crop dimensions and
+      the bbox is precisely the unreliable half for these two.
+
+      ### Tables
+
+      82 blocks → 1195 rows across the corpus, 0 prose fallbacks, **0 offset errors** — the offset
+      contract that citation highlighting depends on is intact, which was the main regression risk
+      of touching `page-blocks.ts`. Highlighting is **per row**, since the chunker splits a long
+      table across chunks; marking whole blocks would claim a citation covered rows it never did.
+      An 18-column timetable scrolls inside its own container at 375px with no page-level
+      horizontal scroll.
+
+      ### Re-measured while here: the stale highlight number
+
+      The 100% rate quoted everywhere was from the old 20-page archive. Re-run over **all 1231
+      chunks of the current 9-issue corpus: 99.9%, 1 unmatched, 0 empty marks** (exact 446 · prefix
+      520 · whitespace 177 · heading 55 · anchor 32). That single miss is the first real row that
+      reaches A2's *no-match* note, which had been unprovable until now.
+
+      **Known and deliberately not fixed:** `/search` snippets still print raw `|` rows, because
+      they render `chunks.content` directly. Different surface, not in the ask — but it is the first
+      thing a reader sees, so it is worth a follow-up.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
