@@ -534,7 +534,11 @@ Do not batch them — A1 alone is a visible win.
       resolves it; **our ingest discards it** when the block tree is flattened to a string. Fixing
       that is a **re-ingest, not a re-OCR** (no GPU hour, no API credit) and it is an
       *ingest-contract* change, so it wants settling before the ~5,000-page run for the same reason
-      C4 did. **Not started, not in this session's scope.**
+      C4 did. **Now tracked as C6 and marked HIGH PRIORITY by Shakib (2026-08-15) — it is the next job,
+      and it must land before the ~5,000-page bulk run.** Spec lives in `infra/plans.md` under START
+      HERE, because the pipeline is where the work happens; the *frontend* half (interleaving crops
+      into the transcription at their true position) becomes possible only once ingest carries the
+      anchor, and is not startable before then.
 
       **What the bbox is genuinely good for is position on the sheet, and that is verified.** The
       two p9 boxes render at 0.295/0.104 and 0.145/0.486 — identical at 375px and 1280px, since a
