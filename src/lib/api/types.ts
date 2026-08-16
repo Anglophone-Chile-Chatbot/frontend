@@ -173,6 +173,14 @@ export interface PageFigure {
   bbox: number[];
   /** OCR block type this crop came from — see the caveat above. Null if unknown. */
   block_type: string | null;
+  /**
+   * Character offset into this page's `raw_text` — the end of the block this
+   * figure follows in reading order (C6, 2026-08-15). `null` when no anchor
+   * could be determined (9 of 66 live figures) — those figures fall back to
+   * gallery-only placement, same as before C6 existed. See
+   * `lib/page-figures.ts` `splicePageFigures`.
+   */
+  text_anchor: number | null;
 }
 
 /** Mirrors `PageDetail` in `backend/app/schemas/pages.py`. */

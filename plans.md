@@ -521,24 +521,26 @@ Do not batch them — A1 alone is a visible win.
       below changed the recommendation.** The brief offered "at their recorded position over the
       scan, **or** inline in the text flow". Inline turned out not to be buildable honestly:
 
-      **`raw_text` carries no image anchors at all — verified across all 71 pages, zero contain a
-      markdown image ref or an `<img>`.** `normalize.py`'s `_IMAGE_REF_RE` strips them at ingest. So
-      there is no recorded point in the text where a figure belongs, and choosing a slot from the
-      bbox's y-coordinate would be inventing placement — on a multi-column sheet, vertical position
-      and reading order are different things.
+      **`raw_text` carried no image anchors at all when this was written — verified across all 71
+      pages, zero contained a markdown image ref or an `<img>`.** `normalize.py`'s `_IMAGE_REF_RE`
+      strips them at ingest. So there was no recorded point in the text where a figure belonged, and
+      choosing a slot from the bbox's y-coordinate would have been inventing placement — on a
+      multi-column sheet, vertical position and reading order are different things. **This is now
+      stale: C6 (below) added a real anchor to 57 of 66 figures the same day, and D5 (2026-08-16,
+      below) built the interleaving this section originally ruled out.** `page-figures.tsx`'s
+      docstring was corrected in the D5 commit.
 
       **The ordering DOES exist upstream, and this is the actionable finding (asked by Shakib,
       2026-08-15).** `blocks.json` for Star of Chile p9 reads `SectionHeader` → `Picture` →
       `Caption` ("GROUP OF ARAUCANIAN INDIANS.") → `Picture` → `Caption` ("THE CHAMPION FOOTBALL
       TEAM…") — exact reading order, captions correctly paired with their own photograph. Chandra
-      resolves it; **our ingest discards it** when the block tree is flattened to a string. Fixing
-      that is a **re-ingest, not a re-OCR** (no GPU hour, no API credit) and it is an
-      *ingest-contract* change, so it wants settling before the ~5,000-page run for the same reason
-      C4 did. **Now tracked as C6 and marked HIGH PRIORITY by Shakib (2026-08-15) — it is the next job,
-      and it must land before the ~5,000-page bulk run.** Spec lives in `infra/plans.md` under START
-      HERE, because the pipeline is where the work happens; the *frontend* half (interleaving crops
-      into the transcription at their true position) becomes possible only once ingest carries the
-      anchor, and is not startable before then.
+      resolves it; ingest used to discard it when the block tree was flattened to a string.
+      **DONE the same day as C6:** the fix was a re-ingest, not a re-OCR (no GPU hour, no API credit),
+      and it shipped as an ingest-contract change before the ~5,000-page run, same reasoning as C4.
+      Full record in `infra/plans.md`. **The frontend half — interleaving crops into the transcription
+      at their true position — is DONE, D5, 2026-08-16 (see that section below).** The overlay/gallery
+      behavior described below is unaffected on the Scan tab and for the 9 unanchored figures; D5 only
+      changed how anchored figures render on the Text tab.
 
       **What the bbox is genuinely good for is position on the sheet, and that is verified.** The
       two p9 boxes render at 0.295/0.104 and 0.145/0.486 — identical at 375px and 1280px, since a
@@ -587,6 +589,55 @@ Do not batch them — A1 alone is a visible win.
       **Known and deliberately not fixed:** `/search` snippets still print raw `|` rows, because
       they render `chunks.content` directly. Different surface, not in the ask — but it is the first
       thing a reader sees, so it is worth a follow-up.
+
+## D5 — Figure crops render inline in the transcription, at their real position — DONE 2026-08-16
+
+- [x] **The payoff C6 (`infra/plans.md`) was built for.** C6 computed `text_anchor` — a character
+      offset into `pages.raw_text` — for 57 of 66 live figures, but nothing consumed it until now: the
+      viewer only drew the scan overlay and a gallery underneath. D5 renders the crop *inline* in the
+      Text tab, between the real text on either side, at its true position in reading order.
+
+      **Three decisions, confirmed by Shakib before writing any code:**
+      1. Inline placement is Text-tab only. The scan-overlay (`FigureOverlay`) only ever draws over
+         the `<img>` on the Scan tab — there was never an image to overlay on the Text tab, so nothing
+         there needed replacing.
+      2. The 9 unanchored figures (`text_anchor: null`) keep the pre-D5 gallery-only treatment. No
+         figure disappears from the Text tab either way.
+      3. Splice mechanism: a new synthetic `figure` block kind added to `PageBlock`
+         (`src/lib/page-blocks.ts`), inserted by a new `splicePageFigures()` function — a second pass
+         over `parsePageBlocks`' output, not a change to the parser. Every existing block keeps
+         exactly the `[start, end)` it had before splicing runs, so citation highlighting's offset
+         contract (`Highlighted`, `findPassage`) is untouched by construction.
+
+      **A real bug found building it, not caught by tsc/eslint/`next build` (all stayed clean
+      throughout) — only the Playwright browser check caught it.** `text_anchor` is defined
+      backend-side as "the end of the block a figure follows," so on the Star of Chile p9 motivating
+      example (anchors 22 and 52) the heading block ends at offset 22 while the next paragraph starts
+      at 24 — the anchor sits in the blank-line *gap* between two blocks, not strictly inside either.
+      The first implementation's containment check (`anchor >= block.start && anchor < block.end`)
+      matched no block for either anchor and silently dropped both figures; `splicePageFigures`
+      returned its input unchanged. Fixed by walking the block list once and inserting a figure
+      immediately after the last block whose `end <= anchor`, rather than requiring strict interior
+      containment. Only an anchor that genuinely falls inside a block's own text (rare) still splits
+      that block. A table is never split mid-row — a mid-table anchor snaps to the nearest row
+      boundary so a row's own `[start, end)`, which per-row highlighting matches against, is never
+      divided.
+
+      **Verified live against the Oracle backend, real browser, 375px.** Star of Chile p9's Text tab
+      now renders "THE STAR OF CHILE." → **Figure 1** (the Araucanian group photo) → "GROUP OF
+      ARAUCANIAN INDIANS." → **Figure 2** (the football team photo) → "THE CHAMPION FOOTBALL TEAM…" —
+      exactly the `blocks.json` reading order the plan named as the target, captions correctly paired
+      with their own photograph, no gallery duplication of either figure, citation `<mark>` still
+      landing correctly across the interleaved blocks. The Scan tab's bbox overlay on the same page
+      was screenshotted and is pixel-identical to pre-D5 behavior. A second, mixed page (The Chilian
+      Times, 30 Dec 1891 p1 — one anchored figure, one not) confirmed the fallback: the anchored
+      figure rendered inline mid-article, the unanchored one still appeared in the "Figure on this
+      page" gallery at the bottom (singular heading, correctly reflecting the one figure left there).
+
+      **`page-figures.tsx`'s stale docstring corrected in the same commit** — it no longer claims
+      `raw_text` carries no image anchors, and now explains the overlay/inline/gallery three-way split.
+
+      tsc, eslint and `next build` all clean, including after the placement-rule fix.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer

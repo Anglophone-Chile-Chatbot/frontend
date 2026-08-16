@@ -10,7 +10,7 @@ import {
   isTightBox,
 } from "@/components/archive/page-figures";
 import type { PageDetail, PageFigure } from "@/lib/api/types";
-import { parsePageBlocks, type PageBlock } from "@/lib/page-blocks";
+import { parsePageBlocks, splicePageFigures, type PageBlock } from "@/lib/page-blocks";
 import { findPassage, type MatchKind } from "@/lib/passage-match";
 import { cn } from "@/lib/utils";
 
@@ -62,8 +62,11 @@ export function SourceViewerBody({
           page &&
           (tab === "text" ? (
             <>
-              <PageText text={page.raw_text} passage={passage} />
-              <FigureGallery figures={figures} onSelect={setZoomed} />
+              <PageText text={page.raw_text} passage={passage} figures={figures} onSelectFigure={setZoomed} />
+              <FigureGallery
+                figures={figures.filter((figure) => figure.text_anchor === null)}
+                onSelect={setZoomed}
+              />
             </>
           ) : (
             <PageImage
@@ -154,11 +157,30 @@ function ViewerTabs({
  * The highlight works on offsets into the *raw* string, and blocks carry their
  * source ranges, so structure and highlighting are derived from one source of
  * truth and cannot drift apart.
+ *
+ * Figures with a `text_anchor` (57 of 66 live, C6) are spliced into the block
+ * list at their anchor offset via `splicePageFigures` and rendered inline,
+ * between the real text on either side of where they belong in reading
+ * order (D5, 2026-08-16). The 9 without an anchor are never spliced here —
+ * they render only in `FigureGallery`, same as every figure did before D5.
  */
-function PageText({ text, passage }: { text: string | null; passage: string | null }) {
+function PageText({
+  text,
+  passage,
+  figures,
+  onSelectFigure,
+}: {
+  text: string | null;
+  passage: string | null;
+  figures: PageFigure[];
+  onSelectFigure: (figure: PageFigure) => void;
+}) {
   const markRef = useRef<HTMLElement>(null);
 
-  const blocks = useMemo(() => parsePageBlocks(text), [text]);
+  const blocks = useMemo(() => {
+    const parsed = parsePageBlocks(text);
+    return splicePageFigures(parsed, figures);
+  }, [text, figures]);
 
   // The cited passage as a range in the raw text; null when absent or unmatched.
   const match = useMemo(() => findPassage(text, passage), [text, passage]);
@@ -182,6 +204,12 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
       {passage && <MatchNote kind={match?.kind ?? null} />}
       {blocks.map((block, index) => {
         const key = `${block.start}-${index}`;
+
+        if (block.kind === "figure") {
+          const figure = figures.find((f) => f.figure_id === block.figureId);
+          if (!figure) return null;
+          return <InlineFigure key={key} figure={figure} onSelect={onSelectFigure} />;
+        }
 
         if (block.kind === "heading") {
           // Heading levels are collapsed to two visual tiers. The OCR tree's
@@ -226,6 +254,47 @@ function PageText({ text, passage }: { text: string | null; passage: string | nu
         );
       })}
     </article>
+  );
+}
+
+/**
+ * A figure crop rendered inline, at the point in the transcription where it
+ * actually sits in reading order (D5, 2026-08-16).
+ *
+ * Only reached for figures with a real `text_anchor` — `splicePageFigures`
+ * never emits a `figure` block for one that lacks it, so this component
+ * never has to decide what "no anchor" should look like inline.
+ */
+function InlineFigure({
+  figure,
+  onSelect,
+}: {
+  figure: PageFigure;
+  onSelect: (figure: PageFigure) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(figure)}
+      className={cn(
+        "group my-4 block w-full max-w-sm overflow-hidden rounded-md border bg-card text-left",
+        "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+        "hover:border-[var(--accent)]/60 focus-visible:outline-2",
+        "focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
+      )}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/api/figures/${figure.figure_id}/image`}
+        alt={`Figure ${figure.figure_index + 1} from this page`}
+        className="h-auto w-full bg-background"
+        loading="lazy"
+      />
+      <span className="block px-2 py-1.5 font-sans text-[0.6875rem] text-muted-foreground">
+        Figure {figure.figure_index + 1}
+        {!isTightBox(figure) && <span className="block text-[0.625rem]">region on the page</span>}
+      </span>
+    </button>
   );
 }
 
@@ -375,7 +444,7 @@ function Highlighted({
   range,
   markRef,
 }: {
-  block: PageBlock;
+  block: Exclude<PageBlock, { kind: "figure" }>;
   range: { start: number; end: number } | null;
   markRef: React.RefObject<HTMLElement | null>;
 }) {

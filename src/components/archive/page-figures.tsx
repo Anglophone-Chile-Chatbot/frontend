@@ -6,21 +6,23 @@ import type { PageFigure } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Figures on a page: boxes over the scan, and a gallery under the text.
+ * Figures on a page: boxes over the scan, an inline crop in the transcription,
+ * and a gallery fallback for the figures that have neither.
  *
- * Why both surfaces, rather than interleaving crops into the transcription:
- * `pages.raw_text` carries **no image anchors at all** — verified across all 71
- * pages of the live corpus, zero contain a markdown image reference or an
- * `<img>`. The ingest normaliser strips them. So there is no recorded point in
- * the text where a figure belongs, and inserting one at a position inferred
- * from the bbox's y-coordinate would be inventing placement the paper never
- * specified — on a multi-column sheet, reading order and vertical position are
- * different things. The bbox is trustworthy as a *position on the sheet*, which
- * is exactly what the scan overlay uses it for.
- *
- * The gallery exists because the Text tab is the viewer's default, and on
- * mobile especially a figure that only appears under the Scan tab is a figure
- * most readers never learn is there.
+ * This component still owns the scan overlay (`FigureOverlay`, unchanged by
+ * D5 — it is the Scan tab's only figure treatment) and the gallery
+ * (`FigureGallery`). What changed 2026-08-16 (D5): `pages.raw_text` now
+ * carries a real anchor for most figures (`text_anchor`, C6, 2026-08-15) — a
+ * character offset marking where each figure follows in reading order,
+ * computed by text-matching each figure's preceding block, never guessed
+ * from the bbox's y-coordinate. 57 of 66 live figures have one. Those are
+ * spliced into the Text tab's block list at their anchor
+ * (`splicePageFigures` in `lib/page-blocks.ts`) and rendered inline by
+ * `source-viewer-body.tsx`'s `InlineFigure` — genuinely at their place in the
+ * text, not inferred from vertical position. The 9 without an anchor keep
+ * being shown by `FigureGallery` below, exactly as every figure was before
+ * this changed. The Scan tab's overlay uses the bbox for position on the
+ * sheet regardless of anchor status — that was never in question.
  */
 
 /**

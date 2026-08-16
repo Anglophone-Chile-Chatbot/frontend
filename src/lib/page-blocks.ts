@@ -60,6 +60,13 @@ export type PageBlock =
       text: string;
       start: number;
       end: number;
+    }
+  | {
+      kind: "figure";
+      figureId: string;
+      /** Zero-width: `start === end`, the anchor offset itself (D5). */
+      start: number;
+      end: number;
     };
 
 const HEADING_RE = /^(#{1,6})\s+(.*)$/;
@@ -98,6 +105,9 @@ function splitRow(line: string): string[] {
   return trimmed.split("|").map((cell) => cell.trim().replace(/&#124;/g, "|"));
 }
 
+/** What `parsePageBlocks` actually produces — never a `figure` block; those only exist after `splicePageFigures`. */
+type ParsedBlock = Exclude<PageBlock, { kind: "figure" }>;
+
 /**
  * Split raw page text into heading and paragraph blocks.
  *
@@ -105,10 +115,10 @@ function splitRow(line: string): string[] {
  * @returns Blocks in document order, each carrying its `[start, end)` range in
  *   `text` so callers can map string offsets back onto rendered nodes.
  */
-export function parsePageBlocks(text: string | null): PageBlock[] {
+export function parsePageBlocks(text: string | null): ParsedBlock[] {
   if (!text) return [];
 
-  const blocks: PageBlock[] = [];
+  const blocks: ParsedBlock[] = [];
   // Track position by consuming the source, so offsets stay exact regardless of
   // how many blank lines separated two blocks. Recomputing with `indexOf` would
   // find the *first* occurrence of a repeated line, not this one.
@@ -199,7 +209,7 @@ export function parsePageBlocks(text: string | null): PageBlock[] {
  * otherwise shift every cell after it left). Padding adds empty cells; it never
  * duplicates a value into a cell the paper left blank.
  */
-function buildTable(group: string[], start: number, end: number): PageBlock {
+function buildTable(group: string[], start: number, end: number): ParsedBlock {
   const text = group.join("\n");
   const separatorAt = group.findIndex((line) => TABLE_SEPARATOR_RE.test(line));
 
@@ -253,4 +263,158 @@ function buildTable(group: string[], start: number, end: number): PageBlock {
 function pad(row: string[], columns: number): string[] {
   if (row.length >= columns) return row;
   return [...row, ...Array<string>(columns - row.length).fill("")];
+}
+
+/** The minimal figure shape `splicePageFigures` needs from `PageFigure`. */
+export type AnchoredFigure = { figure_id: string; text_anchor: number | null };
+
+/**
+ * Insert figures into an already-parsed block list at their `text_anchor`
+ * offset (D5, 2026-08-16).
+ *
+ * A second pass over `parsePageBlocks`' output, not a change to the parser
+ * itself, so every existing block keeps exactly the `[start, end)` it had
+ * before this function ever runs — citation highlighting's offset contract
+ * is untouched. Each figure becomes a zero-width `{ kind: "figure", start:
+ * anchor, end: anchor }` block.
+ *
+ * `text_anchor` is defined backend-side as "the end of the block this figure
+ * follows" (see `backend/app/schemas/pages.py`), which in practice almost
+ * always lands exactly on, or in the blank-line gap just after, a block's own
+ * `end` — not strictly inside one. Measured on the real Star of Chile p9
+ * pair: anchors 22 and 52 against blocks ending at 22 and 52 exactly, with
+ * the next block starting at 24 and 54 (the `\n\n` gap). A naive `anchor >=
+ * block.start && anchor < block.end` containment check drops both, because
+ * neither offset is strictly inside any block — it sits in the gap between
+ * two. So placement instead walks the block list once, letting each block
+ * pass through unchanged, and inserts a figure immediately after the last
+ * block whose `end <= anchor` — i.e. right after the block it follows, which
+ * is exactly what the anchor means. Only the rare case where an anchor is
+ * still strictly *before* the first candidate block's `end` (mid-block) falls
+ * through to splitting that block's text at the offset, so a figure a long
+ * paragraph was OCR'd around still lands between real text either side. A
+ * table is never split mid-row — the anchor is pushed to the nearest row
+ * boundary so a row's own `[start, end)` (which highlighting matches
+ * against) is never divided.
+ *
+ * Figures with `text_anchor: null` (9 of 66 live) are skipped entirely —
+ * they keep the pre-D5 gallery-only treatment in `FigureGallery`.
+ */
+export function splicePageFigures(
+  blocks: Exclude<PageBlock, { kind: "figure" }>[],
+  figures: readonly AnchoredFigure[],
+): PageBlock[] {
+  const anchored = figures
+    .filter((figure): figure is AnchoredFigure & { text_anchor: number } => {
+      return figure.text_anchor !== null;
+    })
+    .slice()
+    .sort((a, b) => a.text_anchor - b.text_anchor);
+
+  if (anchored.length === 0) return blocks;
+
+  const result: PageBlock[] = [];
+  let pending = anchored;
+
+  const emitFigures = (upTo: number) => {
+    while (pending.length > 0 && pending[0].text_anchor <= upTo) {
+      const figure = pending[0];
+      pending = pending.slice(1);
+      result.push({ kind: "figure", figureId: figure.figure_id, start: figure.text_anchor, end: figure.text_anchor });
+    }
+  };
+
+  for (const block of blocks) {
+    // Anchors that land strictly inside this block's own range need to split
+    // its text; everything else (including anchors equal to a boundary, or
+    // sitting in the gap before this block even starts) is handled by
+    // `emitFigures` once the block itself has been pushed.
+    const inside = pending.filter((f) => f.text_anchor > block.start && f.text_anchor < block.end);
+
+    if (inside.length === 0) {
+      result.push(block);
+      emitFigures(block.end);
+      continue;
+    }
+
+    if (block.kind === "table") {
+      // Group by the row each anchor falls in, then emit rows and figures
+      // interleaved without ever slicing a row's own text.
+      let rowStart = 0;
+      for (const figure of inside) {
+        pending = pending.filter((f) => f !== figure);
+        const rowIndex = block.rows.findIndex(
+          (row) => figure.text_anchor >= row.start && figure.text_anchor < row.end,
+        );
+        const cut = rowIndex === -1 ? block.rows.length : rowIndex + 1;
+        if (cut > rowStart) {
+          const slice = block.rows.slice(rowStart, cut);
+          result.push({
+            ...block,
+            head: rowStart === 0 ? block.head : null,
+            rows: slice,
+            start: slice[0].start,
+            end: slice[slice.length - 1].end,
+          });
+          rowStart = cut;
+        }
+        result.push({ kind: "figure", figureId: figure.figure_id, start: figure.text_anchor, end: figure.text_anchor });
+      }
+      if (rowStart < block.rows.length) {
+        const slice = block.rows.slice(rowStart);
+        result.push({
+          ...block,
+          head: rowStart === 0 ? block.head : null,
+          rows: slice,
+          start: slice[0].start,
+          end: slice[slice.length - 1].end,
+        });
+      }
+      emitFigures(block.end);
+      continue;
+    }
+
+    // Heading / paragraph: split the text at each anchor offset, mapped from
+    // the raw-string offset into an index within `block.text`. Headings carry
+    // their `#` marker in `[start, end)` but not in `text`, so the same
+    // marker-offset correction `Highlighted` uses applies here too.
+    const markerOffset = block.end - block.start - block.text.length;
+    let textCursor = 0;
+    let rangeStart = block.start;
+
+    for (const figure of inside) {
+      pending = pending.filter((f) => f !== figure);
+      const splitAt = Math.min(
+        block.text.length,
+        Math.max(0, figure.text_anchor - block.start - markerOffset),
+      );
+
+      if (splitAt > textCursor) {
+        const piece = block.text.slice(textCursor, splitAt);
+        result.push({
+          ...block,
+          text: piece,
+          start: rangeStart,
+          end: rangeStart + (splitAt - textCursor),
+        } as PageBlock);
+        rangeStart += splitAt - textCursor;
+      }
+
+      result.push({ kind: "figure", figureId: figure.figure_id, start: figure.text_anchor, end: figure.text_anchor });
+      textCursor = splitAt;
+    }
+
+    if (textCursor < block.text.length) {
+      const piece = block.text.slice(textCursor);
+      result.push({ ...block, text: piece, start: rangeStart, end: block.end } as PageBlock);
+    }
+
+    emitFigures(block.end);
+  }
+
+  // Any anchor at or past the final block's end (including one on a page
+  // whose text is empty) still deserves to render — appended at the end.
+  emitFigures(Infinity);
+
+  return result;
 }
