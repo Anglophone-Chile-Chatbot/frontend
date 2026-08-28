@@ -6,6 +6,124 @@
 
 ---
 
+## READ FIRST — the chunk order is in root `plans.md` → "THE CHUNKS"
+
+**Frontend owns CHUNK 2 (the reader), CHUNK 3 (images + front door), and part of CHUNK 6.** The root
+file is the cross-repo tiebreaker and wins over any "START HERE" here.
+
+**Next.js 16, not 15** — `params` is async in route handlers and pages
+(`const { documentId } = await params`). Read `node_modules/next/dist/docs/` before writing Next
+code; APIs differ from training data. See AGENTS.md.
+
+---
+
+## CHUNK 2 — THE DOCUMENT READER DOES NOT EXIST. This is the core of Shakib's complaint.
+
+Shakib on the live site, 2026-08-28: *"no way to just click and see the document nor click and see
+all the images … the document viewer isn't clean view so the vision i had for a perfectly online
+reader (text + images stitched) isn't there, the pdf/image view of the whole document isn't there."*
+
+**He is right. It was never built.** Verified by reading the source, not inferred:
+
+- **Two routes exist: `/` and `/archive`.** There is no `/document/[id]`. Both routes are a text box
+  over the same corpus with the same viewer attached — which is exactly why they feel like the same
+  page. **Structurally they are the same page.**
+- **The viewer renders ONE page and cannot move off it.**
+  `grep -rn "nextPage|prevPage|ChevronLeft|ChevronRight|ArrowLeft|ArrowRight" src/` →
+  **2 hits, both inside `ui/dropdown-menu.tsx`.** There is no page navigation in this product.
+- **The worst part, found 2026-08-28:** `document_page_count` is already returned by
+  `GET /pages/{id}` and the viewer **already renders "Page 5 of 8"** (`source-viewer.tsx:79`,
+  `source-viewer-panel.tsx:53`). **The UI tells the reader there are 8 pages and gives them no way
+  to reach page 6.** That is worse than not showing the count at all.
+- `DocumentCatalogue` opens `first_page_id` (page 1) and the reader dead-ends there. Page 2 of a
+  16-page issue is reachable **only** by a search hit that happens to live on it.
+
+**This does not invalidate C4/C6/D5.** Inline figures at `text_anchor` work and were verified in the
+browser. What is missing is the **container** around them. That item was never written down until
+now — which is the honest answer to "why did I spend so much time planning."
+
+- [ ] **2c — `frontend/src/app/document/[documentId]/page.tsx`.** Async `params` (Next 16).
+- [ ] **2d — Reuse `SourceViewerBody` unchanged.** Text/Image tabs, inline figures at `text_anchor`,
+      figure overlay, honest empty state — all already good and verified. Wrap it in document-level
+      chrome. **Do not fork it.**
+- [ ] **2e — Page navigation, the actual missing thing.** Prev/next, "Page N of M" (count already
+      fetched and displayed), keyboard ←/→ on desktop, page-jump for a 16-page issue.
+      **All controls ≥44px — hard rule.**
+- [ ] **2f — Deep-linkable `/document/<id>?page=7`** so a citation chip, an archive row and a shared
+      link all resolve to one URL. **Repoint citation chips and archive rows here** instead of
+      opening a dead-end single page.
+- [ ] **2g — Prefetch the next page on idle.** Oracle round-trip is 0.3-0.9s measured; a reader
+      paging an issue should not pay it each time.
+- [ ] **2h — Blank pages (9 of 71) render the honest note AND the scan** (all 9 have a scan, verified
+      HTTP 200). Mark them in the page-jump control so nobody reads it as a bug. They are genuinely
+      blank — binding boards and endpapers, confirmed in `blocks.json` (0 blocks, 0 chars).
+
+**Blocked on backend 2a** (`GET /documents/{id}/pages`) — no endpoint lists a document's pages.
+
+**Mobile (375px, hard rule):** this is the most likely mobile surface in the product. Text tab
+default, scan one tap away, paging controls thumb-reachable, no horizontal scroll.
+
+**Definition of Done:** from `/archive`, click *The Star of Chile 1904-12-03* and read all **16**
+pages in sequence without touching search; scans and inline figures render; blank pages explain
+themselves; `/document/<id>?page=9` deep-links to the football-team photo; verified in a real browser
+at **375px** and desktop, no horizontal scroll at either. Paste screenshots/counts back here.
+
+---
+
+## CHUNK 3 — IMAGES AS A FIRST-CLASS SURFACE, AND A REAL ARCHIVE FRONT DOOR
+
+Answers the other half of the complaint: *"no way to click and see all the images"* and
+*"archive and ask is literally the same"*.
+
+- [ ] **3a — Document image view.** Every scan of an issue as a thumbnail grid (`/document/<id>/scans`
+      or a reader tab); click opens that page. **Lazy-load** — 16 × 0.72MB WebP is 11.5MB eagerly.
+      A full-page WebP as a grid tile is wasteful: check whether `render.py` can emit a small
+      thumbnail, and **if it cannot, say so honestly** rather than shipping 0.72MB tiles.
+- [ ] **3b — Document figure gallery.** All figure crops of an issue in one place, each linking to
+      its page at its `text_anchor`. Data is live: **66 figures, 57 anchored, all serving 200.**
+      **One document has zero figures** — handle the empty case honestly.
+- [ ] **3c — Separate Ask from Archive.** Make `/archive` a **browsable catalogue first** — the 9
+      issues as real cards (publication, date, page count, cover thumbnail, figure count) — with
+      search as a filter *within* it, not the whole page. The catalogue currently only appears in the
+      search box's `idle` state, which is why it is effectively invisible. `page_count` and
+      `first_page_id` are already on `DocumentSummary`.
+- [ ] **3d — Nav labels.** "Ask" / "Archive" reads as two search boxes. Consider "Ask" / "Browse".
+
+**Definition of Done:** from the front page, reach any issue's full scan set and its complete figure
+set in **≤2 taps without typing a query**. Verified at 375px. The two surfaces are visually distinct
+at a glance.
+
+---
+
+## CHUNK 4 (frontend half) — the two identical catalogue rows
+
+`The Chilian Times 1891-03-14` appears **twice** in the live corpus, rendering as two identical rows:
+same publication, same date, nothing to tell them apart. Per Shakib's 2026-08-13 decision this is the
+legitimate *supplement* case, so it must be **labelled**, not deduplicated.
+
+- [ ] **4e — Show an edition/part label** once the backend exposes `source_stem` (CHUNK 4a/4b).
+      **Do not invent an edition number the paper never printed** — derive it from the source, or
+      show the stem, and be explicit about which it is.
+
+---
+
+## CHUNK 6 (frontend half) — the 44px rule, still violated on the primary mobile affordance
+
+CLAUDE.md calls 44px non-negotiable. Re-verified still present 2026-08-28, carried unfixed as W2
+across multiple sessions:
+
+- [ ] **6b — `site-header.tsx:46`** — nav links `min-h-[40px]`.
+- [ ] **6c — `source-viewer-body.tsx:96`** — Text/Image tabs `min-h-[40px]`.
+- [ ] **6d — `citation-chip.tsx:43`** — `py-[0.05em]`, measured **15×12px**. **This one matters
+      most**: the inline citation chip is the primary mobile affordance of the entire product.
+- [ ] **6e — Re-check the header wordmark centring** (recorded further down this file) while in the
+      header anyway.
+
+**Clean, verified 2026-08-28 — do not re-audit:** no `any` types, no `console.log`, loading/error
+states present on every fetching surface.
+
+---
+
 ## Done (kept for context — do not re-do)
 - create-next-app scaffold: Next.js 16, TS, App Router, Tailwind v4, Turbopack, src-dir, `@/*` alias
 - shadcn init (base-nova preset) + components: button, card, input, avatar, badge, separator, scroll-area, skeleton, sonner, dialog, sheet, tabs, tooltip, dropdown-menu
