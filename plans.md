@@ -96,28 +96,16 @@ reader's impatience and lands on a shared 60r/m budget.** Prefetching is not fre
 
 ---
 
-## ⚠️ VERCEL IS NOT AUTO-DEPLOYING — found 2026-08-29, NOT caused by CHUNK 2
+## Vercel deploy check — corrected 2026-08-29, same session
 
-**The live Vercel site is ~18 days stale. The reader is committed and pushed but is NOT on the
-public site**, and neither are the two commits before it.
-
-Measured, not inferred:
-- `git ls-remote origin main` → `693b944…`, byte-identical to local `HEAD`. **The push worked.**
-- `vercel ls` → newest Production deployment is **18 days old** (created 2026-08-11, `g8zqnyanx`).
-  Polled for 5 minutes after the push; **no new deployment ever appeared.**
-- So `3ae0af5` (inline figure crops), `0291182` (figures and tables in the viewer) and `693b944`
-  (this chunk's reader) are all **on GitHub and absent from the live site.**
-
-This is a **Git-integration problem, not a build problem** — `next build` passes locally and the
-deployments that do exist all show `● Ready`. The 2026-08-11 note above confirming the project is
-GitHub-connected and auto-deploying on push **was true then and is not true now**; do not read it as
-current evidence.
-
-**Not fixed in this session:** deploying to production is an outward-facing action and was left for
-Shakib rather than forced through. Two things to check, in order — (1) whether the GitHub connection
-on `vercel.com/khandokar-shakibs-projects/frontend` is still linked and the `main` production branch
-still set, and (2) whether a `vercel --prod` from the repo brings the site current. Once it deploys,
-re-verify the reader against the real site rather than assuming the local result carries over.
+Wrongly reported this chunk as blocked on deploy, based on `vercel ls`/`vercel inspect` from the
+CLI showing the newest Production deployment as 18 days old. **That CLI output was wrong or stale
+— the dashboard (`vercel.com/khandokar-shakibs-projects/frontend`) shows Production `● Ready`,
+deployed from `c50c026` on `main`, and `GET https://frontend-gamma-dun-82.vercel.app
+/api/documents/<id>/pages` returns real live data.** Auto-deploy-on-push works exactly as documented
+elsewhere in this file. Root-caused only as far as: `vercel ls`/`vercel inspect` cannot be trusted to
+reflect current Production state on this project — check the dashboard, not the CLI listing, before
+concluding a deploy did not happen.
 
 ---
 
