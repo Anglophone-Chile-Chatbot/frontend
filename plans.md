@@ -114,23 +114,105 @@ concluding a deploy did not happen.
 Answers the other half of the complaint: *"no way to click and see all the images"* and
 *"archive and ask is literally the same"*.
 
+**Who this is for, because it decides every judgment call below.** The users are academic historians.
+They do **not** arrive knowing the search term — not knowing it is the reason they came. They want to
+see what exists, skim, find a thread, and chase it. The site today demands a query before showing
+anything, which is backwards. **One sentence governs this chunk: a researcher should browse the
+collection, open any issue, see its pictures, and search inside it — without ever guessing a
+keyword.**
+
+**Numbers measured live 2026-08-29 — use these, do not re-measure blindly, but do sanity-check:**
+- A page scan is **~552KB** measured on the live 9-issue corpus (47MB / 71 pages = ~662KB incl.
+  outliers). The **0.72MB/page** figure recorded for I2 on 2026-08-12 is not wrong — it was the
+  average over the old 20-page corpus. Both are real; use ~552KB-662KB for sizing today.
+- A figure crop is **~33KB** — small enough to grid directly, no thumbnail needed for figures.
+- Whole archive on disk: **55MB** = 47MB pages + 7.7MB figures, 137 WebP files, 71 pages.
+- **No thumbnail capability exists anywhere** — grepped `pages.py` and the services for
+  resize/thumbnail/Image.open: **zero hits**. Whatever is decided about thumbnails is net-new work.
+
 - [ ] **3a — Document image view.** Every scan of an issue as a thumbnail grid (`/document/<id>/scans`
-      or a reader tab); click opens that page. **Lazy-load** — 16 × 0.72MB WebP is 11.5MB eagerly.
-      A full-page WebP as a grid tile is wasteful: check whether `render.py` can emit a small
-      thumbnail, and **if it cannot, say so honestly** rather than shipping 0.72MB tiles.
+      or a reader tab); click opens that page. **Lazy-load** — 16 × 552KB is ~8.8MB eagerly. A
+      full-page WebP as a grid tile is wasteful: check whether `render.py` can emit a small
+      thumbnail, and **if it cannot, say so honestly** rather than shipping 552KB tiles. See 3f for
+      why this decision matters far more at catalogue scale than at issue scale.
 - [ ] **3b — Document figure gallery.** All figure crops of an issue in one place, each linking to
       its page at its `text_anchor`. Data is live: **66 figures, 57 anchored, all serving 200.**
-      **One document has zero figures** — handle the empty case honestly.
-- [ ] **3c — Separate Ask from Archive.** Make `/archive` a **browsable catalogue first** — the 9
-      issues as real cards (publication, date, page count, cover thumbnail, figure count) — with
-      search as a filter *within* it, not the whole page. The catalogue currently only appears in the
-      search box's `idle` state, which is why it is effectively invisible. `page_count` and
-      `first_page_id` are already on `DocumentSummary`.
+      Per-issue counts: **20, 16, 10, 5, 5, 4, 4, 2, 0** — *Valparaiso English Mercury 1844-01-27*
+      has **zero**, so **handle the empty case honestly**; do not hide the tab or fake a placeholder.
+- [ ] **3c — Separate Ask from Archive.** Make `/archive` a **browsable catalogue first** — issues as
+      real cards (publication, date, page count, cover thumbnail, figure count) — with search as a
+      filter *within* it, not the whole page. The catalogue currently only appears in the search
+      box's `idle` state, which is why it is effectively invisible. `page_count` and `first_page_id`
+      are already on `DocumentSummary`.
 - [ ] **3d — Nav labels.** "Ask" / "Archive" reads as two search boxes. Consider "Ask" / "Browse".
 
+### 3e — SEARCH EVERYWHERE, NOT ON ONE PAGE (added 2026-08-29, Shakib's explicit ask)
+
+**The thing that actually makes this feel smooth to an academic, and the thing most likely to get
+skipped** because the old plan only implied it. Search today is one box on one page that throws you
+at a single page of a single issue and then abandons you. The real research loop is
+*search → read → search again from where I am*. Build the loop.
+
+**All of 3e is FRONTEND-ONLY. The backend already does document-scoped retrieval and needs no
+change** — `GET /search?q=…&document_id=<id>` (repeatable param, capped by `MAX_SCOPE_DOCUMENTS`)
+and `POST /chat` with `document_ids` both exist and are live. **Do not build a new endpoint for any
+of this.**
+
+- [ ] **3e-1 — Search inside the open issue.** The reader carries its own small search box scoped to
+      the document being read. Wire it to the existing `document_id` param.
+- [ ] **3e-2 — Hits as page numbers, and jump to them.** A within-issue search must say *which pages*
+      match and let the reader jump straight there — the core archival move ("where in this issue
+      does cholera appear?"). Mark matching pages in the page-jump control CHUNK 2 built.
+- [ ] **3e-3 — Keep the query alive across navigation.** Search → open document → the term is still
+      in the box and **highlighted in the page text**. **Reuse the existing `passage-match.ts`
+      ladder** that already powers citation highlighting — writing a second matcher is how the two
+      drift apart and one silently gets weaker (that exact failure is recorded in this file for
+      A1/A2). Losing the query on navigation is the most common complaint about archive sites.
+- [ ] **3e-4 — The catalogue filter narrows cards, not only chunks.** Typing "Mercury" on `/archive`
+      should surface the Mercury *issues*, not only text chunks containing the word. `GET /documents`
+      already takes `q` as a substring filter over title/publication — use it alongside full-text.
+- [ ] **3e-5 — Citation chips open the whole issue, not a dead-end page.** CHUNK 2 made the reader
+      exist; wire chat's chips and archive's hits to it so a citation lands in a readable document
+      with its page selected.
+
+**Explicitly NOT in scope:** saved searches, search history, user accounts, or anything requiring
+persistence. Phase 1 is stateless; Phase 3 owns accounts. This is scope discipline, not an oversight.
+
+### 3f — BUILD FOR ~600 ISSUES, NOT THE 9 ON THE BOX TODAY
+
+**The most expensive mistake available in this chunk.** Everything visible now is 9 issues / 71
+pages. The bulk GPU run takes this to **~5,000 pages, roughly 600 issues** — a ~60× jump. A catalogue
+designed for 9 becomes a wall at 600 and gets rewritten. Design it once.
+
+- [ ] **3f-1 — Group the catalogue.** Sorting today is `issue_date DESC` only, no grouping. The
+      corpus spans **1843-12-16 → 1905-01-14 across 3 publications** — the exact shape that wants
+      grouping **by publication, then year/decade**. Flat reverse-chronological is right at 9 and
+      unusable at 600.
+- [ ] **3f-2 — Use the pagination that already exists.** `GET /documents` takes `limit` (default 50,
+      max 200) and `offset`. **Do not fetch the whole catalogue and filter client-side** — fine at 9,
+      dead at 600.
+- [ ] **3f-3 — Cover thumbnails are the scaling cliff.** 600 cards × 552KB = **~330MB** of covers on
+      one page. At issue level 552KB tiles are merely wasteful; at catalogue level they are
+      unshippable. This is what makes 3a's thumbnail decision structural rather than cosmetic. If
+      thumbnails are not built, **the catalogue must not render full-size covers** — say so plainly.
+- [ ] **3f-4 — Never treat an issue title as a unique key.** `The Chilian Times 1891-03-14` already
+      appears twice, 4 pages each, indistinguishable. At 600 issues that is routine. **Labelling it
+      is CHUNK 4's job — do not fix it here** — but key everything off `document_id`, never title+date.
+
+**Storage is NOT a concern — settled 2026-08-29, measured, do not re-raise.** Shakib asked whether
+keeping figure crops *and* full scans is wastefully redundant. Mild duplication, and it is fine: the
+crops are what make inline figures and the gallery work, and WebP already did the heavy lifting.
+**55MB total for 71 pages = ~662KB/page all-in → ~3.2GB at 5,000 pages, against 187GB free** on the
+194GB volume (`df -h /`: 7.4G used, 4%). Storage is a rounding error at this scale. **Bandwidth and
+page-weight are the real constraints** — which is exactly what the thumbnail and pagination items
+above address. **Do not propose dropping crops, re-compressing, or moving to a CDN to "save space"** —
+that solves a problem that does not exist.
+
 **Definition of Done:** from the front page, reach any issue's full scan set and its complete figure
-set in **≤2 taps without typing a query**. Verified at 375px. The two surfaces are visually distinct
-at a glance.
+set in **≤2 taps without typing a query**. From inside an open issue, search *within that issue* and
+jump to a matching page, with the term highlighted. Verified in a real browser at **375px** and
+desktop, no horizontal scroll. The two surfaces are visually distinct at a glance. State how the
+catalogue's large-corpus behaviour was checked, since only 9 issues exist to test against.
 
 ---
 
