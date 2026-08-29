@@ -118,6 +118,42 @@ export interface DocumentSummary {
   first_page_id: string | null;
 }
 
+/**
+ * One page's position and availability — mirrors `DocumentPageSummary` in
+ * `backend/app/schemas/documents.py`.
+ *
+ * The reader's table of contents. Carries no `raw_text`: the page strip is
+ * drawn from this, and each page's actual content is fetched on demand from
+ * `GET /api/pages/{page_id}` as the reader arrives at it.
+ */
+export interface DocumentPageSummary {
+  page_id: string;
+  page_number: number;
+  /** A scan exists for this page. All 71 live pages have one. */
+  has_image: boolean;
+  /**
+   * False for a genuinely blank scan — a binding board or endpaper, of which
+   * the live corpus has 9. The reader marks these in the page jump so an empty
+   * page reads as a fact about the paper, not as a failed request.
+   */
+  has_text: boolean;
+  /** Figure crops on this page, so the strip can flag pages carrying images. */
+  figure_count: number;
+}
+
+/** Mirrors `DocumentPagesResponse` in `backend/app/schemas/documents.py`. */
+export interface DocumentPagesResponse {
+  document_id: string;
+  title: string;
+  publication: string | null;
+  issue_date: string | null;
+  language: string;
+  /** `pages.length`, sent explicitly rather than inferred by the client. */
+  page_count: number;
+  /** Ordered by `page_number` ascending. Empty for a document with no pages. */
+  pages: DocumentPageSummary[];
+}
+
 /** Mirrors `DocumentListResponse` in `backend/app/schemas/documents.py`. */
 export interface DocumentListResponse {
   total: number;

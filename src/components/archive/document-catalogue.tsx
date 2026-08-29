@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import type { DocumentListResponse, DocumentSummary } from "@/lib/api/types";
@@ -20,18 +21,21 @@ import { cn } from "@/lib/utils";
  * No endpoint was added; the backend gained `first_page_id` on the existing
  * response, because the viewer is keyed on a page id and the catalogue would
  * otherwise have nothing to open.
+ *
+ * **Rows navigate to `/document/<id>` rather than opening the viewer in
+ * place (2026-08-29).** They used to open page 1 in the side panel, which was
+ * a dead end: the panel shows one page and has no way to reach page 2, so
+ * browsing a 16-page issue was impossible from here. Browsing has no
+ * conversation to lose and no highlighted passage to preserve — unlike a
+ * citation, which still opens the viewer in place — so a real route is
+ * strictly better: it is shareable, back-buttonable, and it can page.
  */
 
 const PAGE_SIZE = 50;
 
 type Status = "loading" | "loaded" | "error";
 
-export function DocumentCatalogue({
-  onOpen,
-}: {
-  /** Opens a document at its first page. */
-  onOpen: (document: DocumentSummary, pageId: string) => void;
-}) {
+export function DocumentCatalogue() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<Status>("loading");
@@ -70,11 +74,7 @@ export function DocumentCatalogue({
       </p>
       <ul className="flex flex-col">
         {documents.map((document) => (
-          <DocumentRow
-            key={document.document_id}
-            document={document}
-            onOpen={onOpen}
-          />
+          <DocumentRow key={document.document_id} document={document} />
         ))}
       </ul>
       {documents.length < total && (
@@ -100,20 +100,15 @@ export function DocumentCatalogue({
  * scale, so the list a reader sees before searching and the list they see
  * after read as one thing.
  */
-function DocumentRow({
-  document,
-  onOpen,
-}: {
-  document: DocumentSummary;
-  onOpen: (document: DocumentSummary, pageId: string) => void;
-}) {
+function DocumentRow({ document }: { document: DocumentSummary }) {
   const date = formatIssueDateShort(document.issue_date);
-  const pageId = document.first_page_id;
 
   // A document with no pages ingested cannot be opened. It is still listed —
   // it is genuinely in the archive — but as static text rather than a control
-  // that looks tappable and then does nothing when tapped.
-  if (pageId === null) {
+  // that looks tappable and then does nothing when tapped. `page_count` is the
+  // test rather than `first_page_id`: the reader route is keyed on the
+  // *document*, so a page id is no longer what makes a row openable.
+  if (document.page_count === 0) {
     return (
       <li className="animate-rise">
         <div className="rule-t px-2 py-3.5">
@@ -128,11 +123,10 @@ function DocumentRow({
 
   return (
     <li className="animate-rise">
-      <button
-        type="button"
-        onClick={() => onOpen(document, pageId)}
+      <Link
+        href={`/document/${document.document_id}`}
         className={cn(
-          "rule-t w-full px-2 py-3.5 text-left",
+          "rule-t block w-full px-2 py-3.5 text-left",
           "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
           "hover:bg-secondary",
         )}
@@ -140,9 +134,9 @@ function DocumentRow({
         <DocumentMeta document={document} date={date} />
         <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
           {document.page_count === 1 ? "1 page" : `${document.page_count} pages`}
-          {" · opens at page 1"}
+          {" · read the issue"}
         </p>
-      </button>
+      </Link>
     </li>
   );
 }

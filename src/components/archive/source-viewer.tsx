@@ -13,6 +13,7 @@ import type { ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
+import { ReadIssueLink } from "./read-issue-link";
 import { SourceViewerBody } from "./source-viewer-body";
 
 /**
@@ -79,6 +80,15 @@ export function SourceViewer({
               {page ? ` of ${page.document_page_count}` : ""}
             </span>
           </SheetDescription>
+          {/* Rendered off the fetched page rather than off `source`, so the
+              link cannot appear before the issue it points at is known. */}
+          {page && (
+            <ReadIssueLink
+              documentId={page.document_id}
+              pageNumber={page.page_number}
+              className="-mt-1"
+            />
+          )}
         </SheetHeader>
 
         <SourceViewerBody

@@ -7,6 +7,7 @@ import type { ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
+import { ReadIssueLink } from "./read-issue-link";
 import { SourceViewerBody } from "./source-viewer-body";
 
 /**
@@ -53,6 +54,13 @@ export function SourceViewerPanel({
                   {page ? ` of ${page.document_page_count}` : ""}
                 </span>
               </p>
+              {page && (
+                <ReadIssueLink
+                  documentId={page.document_id}
+                  pageNumber={page.page_number}
+                  className="-mb-2"
+                />
+              )}
             </div>
             <button
               type="button"

@@ -17,56 +17,82 @@ code; APIs differ from training data. See AGENTS.md.
 
 ---
 
-## CHUNK 2 — THE DOCUMENT READER DOES NOT EXIST. This is the core of Shakib's complaint.
+## CHUNK 2 — ✅ DONE 2026-08-29. The document reader exists.
 
 Shakib on the live site, 2026-08-28: *"no way to just click and see the document nor click and see
 all the images … the document viewer isn't clean view so the vision i had for a perfectly online
-reader (text + images stitched) isn't there, the pdf/image view of the whole document isn't there."*
+reader (text + images stitched) isn't there."*
 
-**He is right. It was never built.** Verified by reading the source, not inferred:
+**The reader half of that is now built and verified in a real browser against the live Oracle
+backend.** (The "all the images" half — a scan grid and a figure gallery — is CHUNK 3 and is still
+open.)
 
-- **Two routes exist: `/` and `/archive`.** There is no `/document/[id]`. Both routes are a text box
-  over the same corpus with the same viewer attached — which is exactly why they feel like the same
-  page. **Structurally they are the same page.**
-- **The viewer renders ONE page and cannot move off it.**
-  `grep -rn "nextPage|prevPage|ChevronLeft|ChevronRight|ArrowLeft|ArrowRight" src/` →
-  **2 hits, both inside `ui/dropdown-menu.tsx`.** There is no page navigation in this product.
-- **The worst part, found 2026-08-28:** `document_page_count` is already returned by
-  `GET /pages/{id}` and the viewer **already renders "Page 5 of 8"** (`source-viewer.tsx:79`,
-  `source-viewer-panel.tsx:53`). **The UI tells the reader there are 8 pages and gives them no way
-  to reach page 6.** That is worse than not showing the count at all.
-- `DocumentCatalogue` opens `first_page_id` (page 1) and the reader dead-ends there. Page 2 of a
-  16-page issue is reachable **only** by a search hit that happens to live on it.
+- [x] **2c — `src/app/document/[documentId]/page.tsx`.** Async `params` *and* `searchParams`
+      (Next 16 — both are promises; confirmed against `node_modules/next/dist/docs/`).
+      `?page=` is parsed with `/^\d+$/` rather than `parseInt`, which would accept `7abc` and `7.9`.
+      An unusable value yields null, and the reader resolves that against the pages that actually
+      exist — a stale shared link opens the issue rather than a dead end.
+- [x] **2d — `SourceViewerBody` reused unchanged.** Not forked, not modified, not copied. The reader
+      is chrome *around* it: text/scan tabs, inline figures at `text_anchor`, the figure overlay and
+      the honest blank-page note all come from the component that was already verified. What was
+      missing was never the renderer — it was knowing an issue has 16 pages.
+- [x] **2e — Page navigation.** Prev/next, "Page N of M", keyboard ←/→, and a page jump. All three
+      controls measure **exactly 44×44** in the browser at 375px, and all three are hit-testable
+      (`elementFromPoint` returns the control itself, not an overlay).
+- [x] **2f — Deep-linkable `/document/<id>?page=N`.** The URL is written on every turn with
+      `router.replace`, not `push` — 16 pages of history between the reader and where they came from
+      would turn Back into "previous page" instead of "leave".
+- [x] **2g — Prefetch the neighbours on idle.** Both directions, behind a **400ms settle** — see the
+      bug below, which is the reason the delay exists.
+- [x] **2h — Blank pages render the honest note AND the scan**, and are marked in the jump *before*
+      anyone navigates in (`Page 5 — blank`). Verified on *The Chilian Times* 1891-12-30 p5: the note
+      renders, and the Scan tab serves a real **1630×2138** image of a genuine blank endpaper.
 
-**This does not invalidate C4/C6/D5.** Inline figures at `text_anchor` work and were verified in the
-browser. What is missing is the **container** around them. That item was never written down until
-now — which is the honest answer to "why did I spend so much time planning."
+**Where citations go, and why the chip does NOT navigate.** The plan said "repoint citation chips
+… here". Chips deliberately still open the viewer in place; a **`ReadIssueLink` ("Read the whole
+issue", 44px, deep-linked to the page already open)** was added to both the mobile sheet and the
+docked panel instead. Two reasons, both load-bearing: Phase 1 chat is **stateless and in-memory**,
+so a chip that routed away would trade the reader's entire conversation for one page — and it would
+discard the **passage highlight**, which is the whole reason a citation opens a viewer rather than a
+link. Verified still intact after the change: opening an `earthquake` hit renders **9 `<mark>`
+elements**, first one `earthquake`, and the link points at `?page=2` — the cited page, not page 1.
 
-- [ ] **2c — `frontend/src/app/document/[documentId]/page.tsx`.** Async `params` (Next 16).
-- [ ] **2d — Reuse `SourceViewerBody` unchanged.** Text/Image tabs, inline figures at `text_anchor`,
-      figure overlay, honest empty state — all already good and verified. Wrap it in document-level
-      chrome. **Do not fork it.**
-- [ ] **2e — Page navigation, the actual missing thing.** Prev/next, "Page N of M" (count already
-      fetched and displayed), keyboard ←/→ on desktop, page-jump for a 16-page issue.
-      **All controls ≥44px — hard rule.**
-- [ ] **2f — Deep-linkable `/document/<id>?page=7`** so a citation chip, an archive row and a shared
-      link all resolve to one URL. **Repoint citation chips and archive rows here** instead of
-      opening a dead-end single page.
-- [ ] **2g — Prefetch the next page on idle.** Oracle round-trip is 0.3-0.9s measured; a reader
-      paging an issue should not pay it each time.
-- [ ] **2h — Blank pages (9 of 71) render the honest note AND the scan** (all 9 have a scan, verified
-      HTTP 200). Mark them in the page-jump control so nobody reads it as a bug. They are genuinely
-      blank — binding boards and endpapers, confirmed in `blocks.json` (0 blocks, 0 chars).
+**Archive catalogue rows DO navigate** (`<Link href="/document/<id>">`). Browsing has no conversation
+to lose and no passage to preserve, and the old behaviour — open page 1 in a panel that cannot reach
+page 2 — was the dead end this chunk exists to remove.
 
-**Blocked on backend 2a** (`GET /documents/{id}/pages`) — no endpoint lists a document's pages.
+### Definition of Done — measured in a real browser, production build, live Oracle backend
 
-**Mobile (375px, hard rule):** this is the most likely mobile surface in the product. Text tab
-default, scan one tap away, paging controls thumb-reachable, no horizontal scroll.
+| check | result |
+|---|---|
+| all 16 pages of *The Star of Chile* 1904-12-03 read in sequence | **16/16**, no search used, **0 failures** |
+| horizontal scroll at 375px | **none**, on every one of the 16 pages and on the blank-page issue |
+| `?page=9` deep link | lands on the **football-team photo** — "THE CHAMPION FOOTBALL TEAM OF SANTIAGO" + "GROUP OF ARAUCANIAN INDIANS", **2 figures**, both loading real pixels (868×568, 1516×1191) |
+| inline figures across the issue | 1,3,1,5,1,0,0,3,2,0,0,2,0,0,0,1 — matching the backend's per-page `figure_count` |
+| blank pages | note + scan + `Page N — blank` in the jump, verified on 1891-12-30 p5 |
+| tap targets (prev / jump / next) | **44×44 each**, all hit-testable in the production build |
+| keyboard | ← → both page and update the URL (16→15→16) |
+| page jump | 16 → 4 lands on page 4 with its 5 figures |
+| desktop 1440px | header, tabs and nav all centred at 336–1104; article at `.measure` width |
+| console errors, clean sweep | **0** |
+| nginx `limiting requests` during clean sweep | **0** |
 
-**Definition of Done:** from `/archive`, click *The Star of Chile 1904-12-03* and read all **16**
-pages in sequence without touching search; scans and inline figures render; blank pages explain
-themselves; `/document/<id>?page=9` deep-links to the football-team photo; verified in a real browser
-at **375px** and desktop, no horizontal scroll at either. Paste screenshots/counts back here.
+### The bug this chunk found in its own first version — prefetch vs the rate limiter
+
+The first 16-page sweep produced **9 × HTTP 502** and one page rendering "That page could not be
+loaded". It was not a backend fault and not a bad page: nginx's `api_general` zone (60r/m, burst 30,
+CHUNK 0) was rejecting the requests, confirmed in the server log —
+`limiting requests, excess: 30.8 by zone "api_general"`.
+
+**The cause was mine.** `usePagePrefetch` fired immediately on every page change, so each turn cost
+*three* requests (the page + both neighbours). Paging quickly — a held arrow key, repeated taps, the
+jump control — multiplies straight into the limiter, and the reader sees 502s on pages that are
+perfectly healthy. Fixed with a **400ms settle**: the pages a reader *skips past* are now never
+fetched at all, so the request rate tracks pages actually read rather than buttons pressed. Re-run at
+reading pace: **16/16 pages, 0 failures, 0 console errors, 0 nginx limiting events.**
+
+Worth keeping, because it will recur: **any speculative fetch added to this app is multiplied by the
+reader's impatience and lands on a shared 60r/m budget.** Prefetching is not free here.
 
 ---
 

@@ -3,12 +3,7 @@
 import { Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type {
-  DocumentSummary,
-  SearchResponse,
-  SearchResult,
-  ViewerSource,
-} from "@/lib/api/types";
+import type { SearchResponse, SearchResult, ViewerSource } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
@@ -40,11 +35,12 @@ export function ArchiveBrowser() {
    * The page open in the viewer, and the passage to highlight within it.
    *
    * Held as `{ source, passage }` rather than as a `SearchResult` because the
-   * viewer now opens from two places with different amounts of information: a
-   * search hit knows the matched chunk text and wants it highlighted, while a
-   * catalogue row is just "open this issue at page 1" and has no cited passage
-   * at all. Passing the whole result and deriving the passage from it would
-   * have forced a fake chunk for the browse case.
+   * viewer's props are the citation shape, not the search shape — the same
+   * pair the chat path passes, so both surfaces drive one component. The
+   * passage is always present here now that the catalogue routes to the reader
+   * instead of opening the viewer, but the split is kept: it is what the
+   * viewer's own API asks for, and collapsing it would make the two callers
+   * differ for no gain.
    */
   const [active, setActive] = useState<{
     source: ViewerSource;
@@ -109,38 +105,10 @@ export function ArchiveBrowser() {
     });
   }, []);
 
-  /**
-   * Open a browsed document at its first page.
-   *
-   * The catalogue has no chunk and no matched text, so `passage` is null and
-   * the viewer shows the page unhighlighted — which is honest: nothing was
-   * cited here, so marking a passage would invent an emphasis the reader never
-   * asked for. `chunk_id` is the page id because the viewer only uses it as a
-   * React key; nothing resolves it back to a chunk on this path.
-   *
-   * `page_number` is deliberately null rather than 1. Both viewers render
-   * `source.page_number ?? page.page_number`, preferring what the caller
-   * passed — so hardcoding 1 here would print "Page 1" even for an issue whose
-   * lowest ingested page is 3, and it would print it *confidently*, overriding
-   * the fetched page's own number. Null makes the viewer fall through to the
-   * page it actually loaded, which is the only value known to be true.
-   */
-  const openDocument = useCallback(
-    (document: DocumentSummary, pageId: string) => {
-      setActive({
-        source: {
-          chunk_id: pageId,
-          page_id: pageId,
-          document_id: document.document_id,
-          page_number: null,
-          publication: document.publication,
-          issue_date: document.issue_date,
-        },
-        passage: null,
-      });
-    },
-    [],
-  );
+  // The catalogue no longer opens the viewer — its rows are links into
+  // `/document/<id>`, the reader route, because opening page 1 in a panel that
+  // cannot reach page 2 was a dead end for browsing. The viewer here now has
+  // exactly one entry point, a search hit, which always carries a passage.
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -205,7 +173,7 @@ export function ArchiveBrowser() {
               <>
                 <IdleNote />
                 <div className="mt-6">
-                  <DocumentCatalogue onOpen={openDocument} />
+                  <DocumentCatalogue />
                 </div>
               </>
             )}
