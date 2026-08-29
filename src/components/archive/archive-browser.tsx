@@ -3,6 +3,7 @@
 import { Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useCatalogue } from "@/hooks/use-catalogue";
 import type { SearchResponse, SearchResult, ViewerSource } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
 import { cn } from "@/lib/utils";
@@ -13,34 +14,63 @@ import { SourceViewer } from "./source-viewer";
 import { SourceViewerPanel } from "./source-viewer-panel";
 
 /**
- * Full-text search over the archive.
+ * Browse — the archive as a collection, with search as a tool inside it.
  *
- * Distinct from the assistant: this returns the pages themselves, ranked, with
- * the matching passage shown as a snippet. Results open in the same viewer the
- * citations use, with the matched passage highlighted.
+ * **This page was inverted by CHUNK 3, and the inversion is the point.** It
+ * used to be a search box that happened to list the catalogue in its idle
+ * state, which made the two surfaces of the site — Ask and Browse — read as
+ * the same thing: two text fields over one corpus. The users are academic
+ * historians who do not arrive knowing the search term; demanding a query
+ * before showing anything inverts how research actually starts. So the
+ * catalogue is now the page, and one field filters it.
+ *
+ * That field does two jobs at once, because a reader typing a word does not
+ * care which index answers it:
+ *
+ * - It **narrows the catalogue** through `GET /documents?q=`, a substring match
+ *   over publication and title. Typing "Mercury" should surface the Mercury
+ *   *issues*, not only chunks that happen to contain the word.
+ * - It **searches the full text** through `GET /search`, ranked, listed below
+ *   the catalogue. Typing "cholera" matches no issue *title*, so the catalogue
+ *   narrows to nothing while the passages are what the reader wanted.
+ *
+ * Both run from one box, and both results are shown, labelled for what they
+ * are. Splitting them into two fields would make the reader guess which one
+ * their word belongs to — which is the same mistake as making them guess a
+ * search term in the first place.
  */
 
 const PAGE_SIZE = 20;
 
-type Status = "idle" | "searching" | "loaded" | "error";
+/**
+ * Shortest query worth sending to the full-text index.
+ *
+ * Matches the catalogue filter's own threshold so the two halves of the single
+ * field switch on together — one of them reacting a keystroke before the other
+ * would read as the page changing its mind.
+ */
+const MIN_QUERY_CHARS = 2;
+
+/** Debounce before a keystroke becomes a request. Matches `useCatalogue`. */
+const DEBOUNCE_MS = 250;
+
+type SearchStatus = "idle" | "searching" | "loaded" | "error";
 
 export function ArchiveBrowser() {
-  const [query, setQuery] = useState("");
-  const [submitted, setSubmitted] = useState("");
+  const catalogue = useCatalogue();
+  const { filter, setFilter } = catalogue;
+
   const [results, setResults] = useState<SearchResult[]>([]);
   const [total, setTotal] = useState(0);
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<SearchStatus>("idle");
+  const [submitted, setSubmitted] = useState("");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   /**
    * The page open in the viewer, and the passage to highlight within it.
    *
    * Held as `{ source, passage }` rather than as a `SearchResult` because the
    * viewer's props are the citation shape, not the search shape — the same
-   * pair the chat path passes, so both surfaces drive one component. The
-   * passage is always present here now that the catalogue routes to the reader
-   * instead of opening the viewer, but the split is kept: it is what the
-   * viewer's own API asks for, and collapsing it would make the two callers
-   * differ for no gain.
+   * pair the chat path passes, so both surfaces drive one component.
    */
   const [active, setActive] = useState<{
     source: ViewerSource;
@@ -72,15 +102,46 @@ export function ArchiveBrowser() {
       setResults((current) =>
         offset === 0 ? body.results : [...current, ...body.results],
       );
+      setSubmitted(term);
       setStatus("loaded");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setStatus("error");
     } finally {
       setIsLoadingMore(false);
-      controllerRef.current = null;
     }
   }, []);
+
+  // The full-text half of the one field, debounced alongside the catalogue's
+  // own filter so a single keystroke costs two requests, not fourteen.
+  const term = filter.trim();
+  const isSearchable = term.length >= MIN_QUERY_CHARS;
+
+  /**
+   * Drop stale passages the moment the field falls below the searchable
+   * length, during render rather than in an effect — the pattern
+   * `use-source-page` established. Resetting in an effect would leave one
+   * painted frame of the previous term's results under a cleared field.
+   */
+  const [searchableFor, setSearchableFor] = useState(isSearchable);
+  if (isSearchable !== searchableFor) {
+    setSearchableFor(isSearchable);
+    if (!isSearchable) {
+      // State only — refs are not touchable during render, and the effect's
+      // cleanup already aborts any in-flight request. See `use-document-search`
+      // for the same reasoning spelled out.
+      setResults([]);
+      setTotal(0);
+      setSubmitted("");
+      setStatus("idle");
+    }
+  }
+
+  useEffect(() => {
+    if (!isSearchable) return;
+    const timer = window.setTimeout(() => void runSearch(term, 0), DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [term, isSearchable, runSearch]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -88,8 +149,7 @@ export function ArchiveBrowser() {
    * Open a search hit at its matched page, highlighting the matched passage.
    *
    * `SearchResult` is a superset of what the viewer needs, so the citation
-   * fields are projected and `content` becomes the passage to highlight —
-   * unchanged behaviour, just expressed as one of two entry points now.
+   * fields are projected and `content` becomes the passage to highlight.
    */
   const openResult = useCallback((result: SearchResult) => {
     setActive({
@@ -105,20 +165,6 @@ export function ArchiveBrowser() {
     });
   }, []);
 
-  // The catalogue no longer opens the viewer — its rows are links into
-  // `/document/<id>`, the reader route, because opening page 1 in a panel that
-  // cannot reach page 2 was a dead end for browsing. The viewer here now has
-  // exactly one entry point, a search hit, which always carries a passage.
-
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
-    const term = query.trim();
-    if (term.length === 0) return;
-    setSubmitted(term);
-    setResults([]);
-    void runSearch(term, 0);
-  }
-
   const hasMore = results.length < total;
 
   return (
@@ -127,16 +173,24 @@ export function ArchiveBrowser() {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 pb-12 sm:px-6 sm:py-7">
-          <p className="eyebrow">Archive</p>
+          <p className="eyebrow">Browse</p>
           <h1 className="mt-2.5 font-heading text-[1.5rem] leading-tight text-foreground sm:text-[1.875rem]">
-            Search the pages directly
+            The collection
           </h1>
           <p className="measure mt-2.5 text-[0.875rem] leading-relaxed text-muted-foreground">
-            Full-text search across every scanned page. Results are ranked by
-            relevance and open in the original.
+            Every issue held in the archive, newest first. Open one to read it
+            page by page, see its scans, or look through its figures — no search
+            term required.
           </p>
 
-          <form onSubmit={submit} className="mt-5">
+          <form
+            // Submitting is a no-op: both halves already track the field as it
+            // is typed. Prevented so Enter on a phone keyboard does not reload
+            // the page and discard everything on screen.
+            onSubmit={(event) => event.preventDefault()}
+            role="search"
+            className="mt-5"
+          >
             <div
               className={cn(
                 "flex items-center gap-2 rounded-lg border bg-card px-3",
@@ -144,17 +198,17 @@ export function ArchiveBrowser() {
                 "focus-within:border-[var(--accent)]",
               )}
             >
-              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
               <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
                 type="search"
                 inputMode="search"
                 enterKeyHint="search"
-                placeholder="Search words or phrases…"
-                aria-label="Search the archive"
+                placeholder="Filter by publication, or search the pages…"
+                aria-label="Filter the catalogue and search the pages"
                 className={cn(
-                  "min-h-[44px] flex-1 bg-transparent outline-none",
+                  "min-h-[44px] min-w-0 flex-1 bg-transparent outline-none",
                   // 16px avoids iOS zoom-on-focus.
                   "text-base sm:text-[0.9375rem]",
                   "placeholder:text-muted-foreground",
@@ -163,65 +217,79 @@ export function ArchiveBrowser() {
             </div>
           </form>
 
-          <div className="mt-6">
-            {status === "searching" && <SearchingNote />}
-            {status === "error" && <ErrorNote />}
-            {/* Before any search, the archive lists itself. This is the only
-                path into the viewer that does not require guessing a search
-                term first, and it is the whole point of the catalogue. */}
-            {status === "idle" && (
-              <>
-                <IdleNote />
-                <div className="mt-6">
-                  <DocumentCatalogue />
-                </div>
-              </>
-            )}
-            {status === "loaded" && results.length === 0 && (
-              <NoResultsNote term={submitted} />
-            )}
-
-            {status === "loaded" && results.length > 0 && (
-              <>
-                <p className="eyebrow mb-3">
-                  {total} {total === 1 ? "passage" : "passages"} found
-                </p>
-                <ul className="flex flex-col">
-                  {results.map((result) => (
-                    <ResultRow
-                      key={result.chunk_id}
-                      result={result}
-                      query={submitted}
-                      onOpen={openResult}
-                    />
-                  ))}
-                </ul>
-
-                {hasMore && (
-                  <button
-                    type="button"
-                    onClick={() => void runSearch(submitted, results.length)}
-                    disabled={isLoadingMore}
-                    className={cn(
-                      "mt-4 flex min-h-[44px] w-full items-center justify-center gap-2",
-                      "rounded-md border text-[0.8125rem] text-foreground",
-                      "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
-                      "hover:bg-secondary disabled:opacity-60",
-                    )}
-                  >
-                    {isLoadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {isLoadingMore ? "Loading…" : "Load more"}
-                  </button>
-                )}
-              </>
-            )}
+          <div className="mt-7">
+            <DocumentCatalogue
+              groups={catalogue.groups}
+              total={catalogue.total}
+              shown={catalogue.documents.length}
+              applied={catalogue.applied}
+              status={catalogue.status}
+              isLoadingMore={catalogue.isLoadingMore}
+              hasMore={catalogue.hasMore}
+              onLoadMore={catalogue.loadMore}
+            />
           </div>
+
+          {/* The full-text half. Below the catalogue, and only once there is
+              something to say — an empty section under every idle visit would
+              be exactly the blank screen the catalogue exists to prevent. */}
+          {status !== "idle" && (
+            <div className="mt-9">
+              <div className="rule-t pt-5">
+                {status === "searching" && <SearchingNote />}
+                {status === "error" && <ErrorNote />}
+
+                {status === "loaded" && results.length === 0 && (
+                  <NoResultsNote term={submitted} />
+                )}
+
+                {status === "loaded" && results.length > 0 && (
+                  <>
+                    <p className="eyebrow mb-3">
+                      {total} {total === 1 ? "passage" : "passages"} inside the
+                      pages
+                    </p>
+                    <ul className="flex flex-col">
+                      {results.map((result) => (
+                        <ResultRow
+                          key={result.chunk_id}
+                          result={result}
+                          query={submitted}
+                          onOpen={openResult}
+                        />
+                      ))}
+                    </ul>
+
+                    {hasMore && (
+                      <button
+                        type="button"
+                        onClick={() => void runSearch(submitted, results.length)}
+                        disabled={isLoadingMore}
+                        className={cn(
+                          "mt-4 flex min-h-[44px] w-full items-center justify-center gap-2",
+                          "rounded-md border text-[0.8125rem] text-foreground",
+                          "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+                          "hover:bg-secondary disabled:opacity-60",
+                        )}
+                      >
+                        {isLoadingMore && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        )}
+                        {isLoadingMore ? "Loading…" : "Load more passages"}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <SourceViewer
         source={active?.source ?? null}
         passage={active?.passage ?? null}
+        query={submitted}
         onOpenChange={(open) => {
           if (!open) setActive(null);
         }}
@@ -229,12 +297,20 @@ export function ArchiveBrowser() {
       <SourceViewerPanel
         source={active?.source ?? null}
         passage={active?.passage ?? null}
+        query={submitted}
         onClose={() => setActive(null)}
       />
     </div>
   );
 }
 
+/**
+ * One passage from inside the pages.
+ *
+ * Kept as a row rather than a card, deliberately unlike the catalogue above
+ * it: these are excerpts, and a reader should be able to tell at a glance
+ * which half of the page they are looking at without reading the headings.
+ */
 function ResultRow({
   result,
   query,
@@ -317,20 +393,11 @@ function Snippet({ text, query }: { text: string; query: string }) {
   );
 }
 
-function IdleNote() {
-  return (
-    <p className="measure text-[0.875rem] leading-relaxed text-muted-foreground">
-      Search for a place, a ship, a merchant house, or a phrase as it would have
-      been printed. Accents are optional — “Valparaiso” finds “Valparaíso”.
-    </p>
-  );
-}
-
 function SearchingNote() {
   return (
     <p className="flex items-center gap-2 text-[0.875rem] text-muted-foreground">
       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      Searching…
+      Searching the pages…
     </p>
   );
 }
@@ -344,6 +411,7 @@ function NoResultsNote({ term }: { term: string }) {
       <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
         Try a shorter phrase or a period spelling — these pages were set in
         nineteenth-century type, and names were often printed differently.
+        Accents are optional: “Valparaiso” finds “Valparaíso”.
       </p>
     </div>
   );

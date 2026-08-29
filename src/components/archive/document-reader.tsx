@@ -1,22 +1,27 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Images, Loader2, Rows3 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { DocumentFigures } from "@/components/archive/document-figures";
+import { DocumentScans } from "@/components/archive/document-scans";
+import { DocumentSearch } from "@/components/archive/document-search";
 import { SourceViewerBody } from "@/components/archive/source-viewer-body";
+import { useDocumentFigures } from "@/hooks/use-document-figures";
 import {
   useDocumentReader,
   usePagePrefetch,
 } from "@/hooks/use-document-reader";
+import { useDocumentSearch } from "@/hooks/use-document-search";
 import { useSourcePage } from "@/hooks/use-source-page";
 import type { DocumentPageSummary, ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
 /**
- * The document reader — read one issue end to end, page by page.
+ * The document reader — read one issue end to end, see all of it, search it.
  *
  * This is the container the archive was missing. Every page-level piece it
  * needs already existed and is reused verbatim: `SourceViewerBody` renders the
@@ -30,22 +35,65 @@ import { cn } from "@/lib/utils";
  * count was an advertisement for a capability the product did not have. The
  * fix is a page strip, not a new renderer.
  *
- * The URL is the state. `?page=N` is written on every turn with `replace`, so
- * a reader can share exactly what they are looking at, a citation can deep-link
- * into an issue, and the back button leaves the reader rather than walking back
- * through every page they turned.
+ * **CHUNK 3 gave the issue two more ways to be looked at and one way to be
+ * questioned.** A newspaper is not only a sequence of pages to be read in
+ * order: a historian scanning for engravings, or for how an issue was laid
+ * out, wants to *see* the whole thing at once, and one who already knows what
+ * they are looking for wants to ask where it is. So the reader now has three
+ * views of the same issue —
+ *
+ * - **Read** — one page at a time, unchanged, still `SourceViewerBody`.
+ * - **Scans** — every sheet as a grid (`DocumentScans`).
+ * - **Figures** — every crop in the issue (`DocumentFigures`).
+ *
+ * — over a search box scoped to this issue alone (`DocumentSearch`), whose
+ * hits mark pages in all three.
+ *
+ * The URL is the state. `?page=N&q=term` is written on every turn with
+ * `replace`, so a reader can share exactly what they are looking at, a citation
+ * can deep-link into an issue, the search term survives navigation and refresh,
+ * and the back button leaves the reader rather than walking back through every
+ * page they turned.
  */
+
+type ReaderView = "read" | "scans" | "figures";
+
 export function DocumentReader({
   documentId,
   initialPage,
+  initialQuery,
 }: {
   documentId: string;
   /** From `?page=`; already parsed. Null when absent or unparseable. */
   initialPage: number | null;
+  /** From `?q=`; already parsed. Empty when absent. */
+  initialQuery: string;
 }) {
   const router = useRouter();
   const { document, status, pages, current, previous, next, position, goTo } =
     useDocumentReader(documentId, initialPage);
+
+  const [view, setView] = useState<ReaderView>("read");
+
+  const search = useDocumentSearch(documentId);
+  const { setQuery } = search;
+
+  // Seed the box from the URL exactly once per issue, so a reader arriving
+  // from a search or a shared link finds their term already there and the
+  // matching pages already marked. Not a controlled mirror of the prop: the
+  // reader types into this box, and re-seeding on every render would fight
+  // them for the caret.
+  const seededFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (seededFor.current === documentId) return;
+    seededFor.current = documentId;
+    if (initialQuery.length > 0) setQuery(initialQuery);
+  }, [documentId, initialQuery, setQuery]);
+
+  // Figures are only gathered once the reader asks for them — the sweep is one
+  // request per page carrying figures, and firing it on every issue that is
+  // merely opened would spend the rate limit on a tab nobody looked at.
+  const figures = useDocumentFigures(pages, view === "figures");
 
   // Warm the neighbours. Both directions, because a reader who has just gone
   // forward may well go back, and the page they came from is the single most
@@ -74,18 +122,43 @@ export function DocumentReader({
 
   const { page, status: pageStatus, tab, setTab } = useSourcePage(source);
 
-  // Keep the URL in step with the page. `replace`, not `push`: a 16-page issue
-  // would otherwise leave 16 history entries between the reader and wherever
-  // they came from, so Back would mean "previous page" instead of "leave".
-  const lastWritten = useRef<number | null>(null);
+  /**
+   * The passage to highlight on the open page, when the reader's own search
+   * put them there.
+   *
+   * This is 3e-3's second half, and it deliberately reuses the existing
+   * `passage-match` ladder rather than introducing a term matcher of its own.
+   * `SourceViewerBody` already takes a `passage` and locates it through
+   * `findPassage`, which climbs from exact substring down to an approximate
+   * leading anchor because the stored chunk is not a copy of the page. Feeding
+   * the matched chunk's text through that same path means a search highlight
+   * and a citation highlight are literally the same mechanism — a second
+   * matcher is how the two drift and one silently gets weaker.
+   *
+   * Null when the current page did not match, so a reader paging away from a
+   * hit sees the highlight disappear rather than a stale mark on a page that
+   * has nothing to do with their term.
+   */
+  const passage = search.passageFor(current?.page_number ?? null);
+
+  // Keep the URL in step with the page and the query. `replace`, not `push`: a
+  // 16-page issue would otherwise leave 16 history entries between the reader
+  // and wherever they came from, so Back would mean "previous page" instead of
+  // "leave" — and a search box would add one entry per keystroke.
+  const lastWritten = useRef<string | null>(null);
   useEffect(() => {
     if (current === null) return;
-    if (lastWritten.current === current.page_number) return;
-    lastWritten.current = current.page_number;
-    router.replace(`/document/${documentId}?page=${current.page_number}`, {
-      scroll: false,
-    });
-  }, [current, documentId, router]);
+
+    const params = new URLSearchParams({ page: String(current.page_number) });
+    // The *matched* term, not the one being typed: writing every keystroke
+    // would put half-words in the address bar and in anything shared from it.
+    if (search.matched.length > 0) params.set("q", search.matched);
+
+    const url = `/document/${documentId}?${params}`;
+    if (lastWritten.current === url) return;
+    lastWritten.current = url;
+    router.replace(url, { scroll: false });
+  }, [current, documentId, router, search.matched]);
 
   const goPrevious = useCallback(() => {
     if (previous) goTo(previous.page_number);
@@ -95,10 +168,29 @@ export function DocumentReader({
     if (next) goTo(next.page_number);
   }, [next, goTo]);
 
+  /**
+   * Open a page from the scan grid, the figure gallery or a search hit.
+   *
+   * All three are "take me to this sheet", so all three land on the Read view
+   * — leaving the reader in a grid after they asked for a page would be a
+   * control that appears to do nothing.
+   */
+  const openPage = useCallback(
+    (pageNumber: number) => {
+      goTo(pageNumber);
+      setView("read");
+    },
+    [goTo],
+  );
+
   // Keyboard paging, desktop's natural affordance for a reader. Skipped while
-  // the reader is typing (the page jump is a real input) and while a modifier
-  // is held, so browser and OS shortcuts keep working.
+  // the reader is typing (the page jump and the search box are real inputs)
+  // and while a modifier is held, so browser and OS shortcuts keep working.
+  // Only on the Read view: in a grid the arrow keys are the browser's own
+  // scroll, and stealing them would trap the reader mid-page.
   useEffect(() => {
+    if (view !== "read") return;
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
@@ -121,7 +213,7 @@ export function DocumentReader({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goPrevious, goNext]);
+  }, [goPrevious, goNext, view]);
 
   if (status === "loading") return <ReaderLoading />;
   if (status === "missing") return <ReaderMissing />;
@@ -129,47 +221,102 @@ export function DocumentReader({
   if (document === null) return <ReaderError />;
 
   const dateline = formatIssueDate(document.issue_date);
+  const figureTotal = pages.reduce((sum, entry) => sum + entry.figure_count, 0);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ReaderHeader
         publication={document.publication ?? document.title}
         dateline={dateline}
-        pageNumber={current?.page_number ?? null}
+        pageNumber={view === "read" ? (current?.page_number ?? null) : null}
         pageCount={document.page_count}
+        figureTotal={figureTotal}
       />
 
       {document.pages.length === 0 ? (
         <ReaderNoPages />
       ) : (
         <>
+          <ViewSwitch
+            view={view}
+            onChange={setView}
+            pageCount={document.page_count}
+            figureTotal={figureTotal}
+          />
+
+          <DocumentSearch
+            query={search.query}
+            onQueryChange={search.setQuery}
+            onClear={search.reset}
+            hits={search.hits}
+            total={search.total}
+            isPartial={search.isPartial}
+            status={search.status}
+            matched={search.matched}
+            currentPageNumber={view === "read" ? (current?.page_number ?? null) : null}
+            onGoTo={openPage}
+          />
+
           {/* The scroll container is this element, not the page. The shell is
               `h-dvh` + `overflow-hidden`, which is what keeps the paging bar
               fixed at the bottom on mobile instead of scrolling away with the
-              text — the same reason the composer stays put for the keyboard. */}
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
-              <SourceViewerBody
-                status={pageStatus}
-                page={page}
-                tab={tab}
-                onTabChange={setTab}
-                // Nothing was cited on this route, so nothing is highlighted.
-                // Passing a passage here would invent an emphasis the reader
-                // never asked for — the same reasoning as the catalogue path.
-                passage={null}
-              />
-            </div>
+              text — the same reason the composer stays put for the keyboard.
+              `relative` is load-bearing for the grids: `FigureLightbox` is an
+              `absolute inset-0` overlay and needs a positioned ancestor, or it
+              would escape to the viewport and cover the header. */}
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            {view === "read" && (
+              <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
+                <SourceViewerBody
+                  status={pageStatus}
+                  page={page}
+                  tab={tab}
+                  onTabChange={setTab}
+                  passage={passage}
+                />
+              </div>
+            )}
+
+            {view === "scans" && (
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <div className="mx-auto w-full max-w-3xl">
+                  <DocumentScans
+                    pages={pages}
+                    currentPageNumber={current?.page_number ?? null}
+                    matchedPages={search.matchedPages}
+                    onOpen={openPage}
+                  />
+                </div>
+              </div>
+            )}
+
+            {view === "figures" && (
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <div className="mx-auto w-full max-w-3xl">
+                  <DocumentFigures
+                    figures={figures.figures}
+                    status={figures.status}
+                    onOpenPage={openPage}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <PageNavigation
-            pages={pages}
-            current={current}
-            previous={previous}
-            next={next}
-            position={position}
-            onGoTo={goTo}
-          />
+          {/* Paging belongs to the Read view only. In a grid every sheet is
+              already on screen and "next page" would move something the reader
+              cannot see. */}
+          {view === "read" && (
+            <PageNavigation
+              pages={pages}
+              current={current}
+              previous={previous}
+              next={next}
+              position={position}
+              matchedPages={search.matchedPages}
+              onGoTo={goTo}
+            />
+          )}
         </>
       )}
     </div>
@@ -187,11 +334,14 @@ function ReaderHeader({
   dateline,
   pageNumber,
   pageCount,
+  figureTotal,
 }: {
   publication: string;
   dateline: string | null;
+  /** Null on the grid views, where no single page is open. */
   pageNumber: number | null;
   pageCount: number;
+  figureTotal: number;
 }) {
   return (
     <div className="rule-b shrink-0 px-4 py-3 sm:px-6">
@@ -206,7 +356,7 @@ function ReaderHeader({
           )}
         >
           <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-          Archive
+          Browse
         </Link>
         <h1 className="font-heading text-[1.125rem] leading-snug text-foreground sm:text-[1.375rem]">
           {publication}
@@ -219,7 +369,82 @@ function ReaderHeader({
               ? `${pageCount} ${pageCount === 1 ? "page" : "pages"}`
               : `Page ${pageNumber} of ${pageCount}`}
           </span>
+          {figureTotal > 0 && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="numeric">
+                {figureTotal === 1 ? "1 figure" : `${figureTotal} figures`}
+              </span>
+            </>
+          )}
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Read / Scans / Figures.
+ *
+ * Three ways of looking at one issue, so the switch is a segmented control
+ * rather than a menu: all three are always available and the reader should be
+ * able to see that without opening anything. Counts are on the labels because
+ * "Figures 20" and "Figures 0" are different invitations, and the second is a
+ * fact about the paper worth knowing before tapping.
+ *
+ * The Figures tab is never hidden or disabled when an issue has none — *The
+ * Valparaiso English Mercury* of 1844-01-27 genuinely ran no engravings, and a
+ * missing tab would read as a broken feature rather than as an empty issue.
+ */
+function ViewSwitch({
+  view,
+  onChange,
+  pageCount,
+  figureTotal,
+}: {
+  view: ReaderView;
+  onChange: (view: ReaderView) => void;
+  pageCount: number;
+  figureTotal: number;
+}) {
+  const items = [
+    { id: "read" as const, label: "Read", icon: BookOpen, count: null },
+    { id: "scans" as const, label: "Scans", icon: Rows3, count: pageCount },
+    { id: "figures" as const, label: "Figures", icon: Images, count: figureTotal },
+  ];
+
+  return (
+    <div className="rule-b shrink-0 px-4 sm:px-6">
+      <div className="mx-auto flex w-full max-w-3xl" role="tablist">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const isActive = view === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => onChange(item.id)}
+              className={cn(
+                "flex min-h-[44px] flex-1 items-center justify-center gap-1.5",
+                "border-b-2 text-[0.8125rem] font-medium",
+                "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+                isActive
+                  ? "border-[var(--accent)] text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {item.label}
+              {item.count !== null && (
+                <span className="numeric text-[0.6875rem] text-muted-foreground">
+                  {item.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -243,6 +468,7 @@ function PageNavigation({
   previous,
   next,
   position,
+  matchedPages,
   onGoTo,
 }: {
   pages: DocumentPageSummary[];
@@ -250,6 +476,8 @@ function PageNavigation({
   previous: DocumentPageSummary | null;
   next: DocumentPageSummary | null;
   position: number;
+  /** Pages matching the within-issue search, marked in the jump list. */
+  matchedPages: Set<number>;
   onGoTo: (pageNumber: number) => void;
 }) {
   return (
@@ -279,7 +507,7 @@ function PageNavigation({
           >
             {pages.map((page) => (
               <option key={page.page_id} value={page.page_number}>
-                {pageJumpLabel(page)}
+                {pageJumpLabel(page, matchedPages.has(page.page_number))}
               </option>
             ))}
           </select>
@@ -314,9 +542,14 @@ function PageNavigation({
  *
  * The figure marker is the same idea pointed the other way: it tells a reader
  * looking for the pictures where they are, without opening every page.
+ *
+ * The search marker leads, because when a reader has a term in the box it is
+ * the only thing they are steering by — a `<select>` cannot be styled per
+ * option across platforms, so the mark has to be in the text itself.
  */
-function pageJumpLabel(page: DocumentPageSummary): string {
+function pageJumpLabel(page: DocumentPageSummary, isMatch: boolean): string {
   const marks: string[] = [];
+  if (isMatch) marks.push("match");
   if (!page.has_text) marks.push("blank");
   if (page.figure_count > 0) {
     marks.push(

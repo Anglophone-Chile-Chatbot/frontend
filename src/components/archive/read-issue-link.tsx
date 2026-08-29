@@ -18,21 +18,33 @@ import { cn } from "@/lib/utils";
  *
  * Deep-links to the page already open, so the reader lands where they were
  * rather than at page 1 and has to find their way back.
+ *
+ * `query` carries the reader's search term into the issue (CHUNK 3, 3e-3).
+ * Arriving from a search with the term already in the reader's own box — and
+ * the matching pages already marked — is the difference between continuing an
+ * investigation and starting one over. Losing the query on navigation is the
+ * single most common complaint about archive sites.
  */
 export function ReadIssueLink({
   documentId,
   pageNumber,
+  query,
   className,
 }: {
   documentId: string;
   /** Null while the page is still loading and its number is not yet known. */
   pageNumber: number | null;
+  /** The term the reader searched, carried into the issue. Empty for none. */
+  query?: string;
   className?: string;
 }) {
-  const href =
-    pageNumber === null
-      ? `/document/${documentId}`
-      : `/document/${documentId}?page=${pageNumber}`;
+  const params = new URLSearchParams();
+  if (pageNumber !== null) params.set("page", String(pageNumber));
+  if (query && query.trim().length > 0) params.set("q", query.trim());
+  const search = params.toString();
+  const href = search.length > 0
+    ? `/document/${documentId}?${search}`
+    : `/document/${documentId}`;
 
   return (
     <Link

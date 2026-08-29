@@ -11,11 +11,20 @@ import { cn } from "@/lib/utils";
  * Two destinations only — the assistant and the archive browser — so the nav
  * is inline at every width rather than collapsing into a hamburger. A menu
  * button for two links is friction, not structure.
+ *
+ * **"Archive" became "Browse" in CHUNK 3.** The old pair read as two search
+ * boxes, which is exactly what the two pages had become: "Ask" and "Archive"
+ * name the *content* of both, so neither label told a reader what the page
+ * would do for them. "Ask" and "Browse" name the two verbs instead — put a
+ * question to the corpus, or go and look at it — which is the actual
+ * distinction, and the one an academic historian arriving without a search
+ * term needs to see. The route stays `/archive`: renaming a label is free,
+ * renaming a URL breaks every link already shared.
  */
 
 const NAV = [
   { href: "/", label: "Ask" },
-  { href: "/archive", label: "Archive" },
+  { href: "/archive", label: "Browse" },
 ] as const;
 
 export function SiteHeader() {

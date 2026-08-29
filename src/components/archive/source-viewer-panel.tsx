@@ -23,11 +23,14 @@ import { SourceViewerBody } from "./source-viewer-body";
 export function SourceViewerPanel({
   source,
   passage,
+  query,
   onClose,
 }: {
   /** The page to show; `null` renders the panel's empty state. */
   source: ViewerSource | null;
   passage?: string | null;
+  /** The reader's search term, carried into the issue by `ReadIssueLink`. */
+  query?: string;
   onClose: () => void;
 }) {
   const { page, status, tab, setTab } = useSourcePage(source);
@@ -58,6 +61,7 @@ export function SourceViewerPanel({
                 <ReadIssueLink
                   documentId={page.document_id}
                   pageNumber={page.page_number}
+                  query={query}
                   className="-mb-2"
                 />
               )}

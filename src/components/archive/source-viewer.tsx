@@ -33,12 +33,15 @@ import { SourceViewerBody } from "./source-viewer-body";
 export function SourceViewer({
   source,
   passage,
+  query,
   onOpenChange,
 }: {
   /** The page to show; `null` closes the viewer. */
   source: ViewerSource | null;
   /** Cited chunk text, highlighted within the page when found. */
   passage?: string | null;
+  /** The reader's search term, carried into the issue by `ReadIssueLink`. */
+  query?: string;
   onOpenChange: (open: boolean) => void;
 }) {
   const { page, status, tab, setTab } = useSourcePage(source);
@@ -86,6 +89,7 @@ export function SourceViewer({
             <ReadIssueLink
               documentId={page.document_id}
               pageNumber={page.page_number}
+              query={query}
               className="-mt-1"
             />
           )}

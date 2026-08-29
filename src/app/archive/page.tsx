@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { ArchiveBrowser } from "@/components/archive/archive-browser";
 
 export const metadata: Metadata = {
-  title: "Archive — Anglophone Chile",
+  title: "Browse the archive — Anglophone Chile",
   description:
-    "Full-text search across scanned Chilean newspapers of the 1800s, ranked by relevance.",
+    "Every scanned issue of the nineteenth-century Chilean English-language press, browsable by publication and date, with full-text search across the pages.",
 };
 
 export default function ArchivePage() {
