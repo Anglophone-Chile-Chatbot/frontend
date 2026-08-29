@@ -96,6 +96,31 @@ reader's impatience and lands on a shared 60r/m budget.** Prefetching is not fre
 
 ---
 
+## ⚠️ VERCEL IS NOT AUTO-DEPLOYING — found 2026-08-29, NOT caused by CHUNK 2
+
+**The live Vercel site is ~18 days stale. The reader is committed and pushed but is NOT on the
+public site**, and neither are the two commits before it.
+
+Measured, not inferred:
+- `git ls-remote origin main` → `693b944…`, byte-identical to local `HEAD`. **The push worked.**
+- `vercel ls` → newest Production deployment is **18 days old** (created 2026-08-11, `g8zqnyanx`).
+  Polled for 5 minutes after the push; **no new deployment ever appeared.**
+- So `3ae0af5` (inline figure crops), `0291182` (figures and tables in the viewer) and `693b944`
+  (this chunk's reader) are all **on GitHub and absent from the live site.**
+
+This is a **Git-integration problem, not a build problem** — `next build` passes locally and the
+deployments that do exist all show `● Ready`. The 2026-08-11 note above confirming the project is
+GitHub-connected and auto-deploying on push **was true then and is not true now**; do not read it as
+current evidence.
+
+**Not fixed in this session:** deploying to production is an outward-facing action and was left for
+Shakib rather than forced through. Two things to check, in order — (1) whether the GitHub connection
+on `vercel.com/khandokar-shakibs-projects/frontend` is still linked and the `main` production branch
+still set, and (2) whether a `vercel --prod` from the repo brings the site current. Once it deploys,
+re-verify the reader against the real site rather than assuming the local result carries over.
+
+---
+
 ## CHUNK 3 — IMAGES AS A FIRST-CLASS SURFACE, AND A REAL ARCHIVE FRONT DOOR
 
 Answers the other half of the complaint: *"no way to click and see all the images"* and
