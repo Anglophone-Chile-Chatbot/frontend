@@ -116,6 +116,29 @@ export interface DocumentSummary {
    * than assuming a page 1 exists.
    */
   first_page_id: string | null;
+  /**
+   * The source PDF's stem, or null for a document ingested before the backend
+   * recorded one. Provenance, not display text — render `edition_label`.
+   */
+  source_stem: string | null;
+  /**
+   * A label distinguishing this issue from another with the same publication
+   * and date — **null unless there actually is one**, which is the whole point
+   * of it.
+   *
+   * `The Chilian Times 1891-03-14` is two real documents in the live corpus,
+   * an issue and its supplement, and they render as byte-identical rows
+   * without this. The backend sets it only for such a pair (computed
+   * corpus-wide, so paging or filtering cannot hide one half), so a component
+   * can render it unconditionally and get a clean row for the eight issues
+   * that are already unambiguous.
+   *
+   * It is the **source stem, not an edition number** — the archive does not
+   * know which of the pair the paper called its second edition, and printing
+   * one would be inventing a citable fact. Present it as a source, never as an
+   * edition.
+   */
+  edition_label: string | null;
 }
 
 /**
@@ -148,6 +171,15 @@ export interface DocumentPagesResponse {
   publication: string | null;
   issue_date: string | null;
   language: string;
+  /** See `DocumentSummary.source_stem`. */
+  source_stem: string | null;
+  /**
+   * See `DocumentSummary.edition_label`. Carried here too because the reader's
+   * header *is* a publication and a date — exactly the pair that is ambiguous
+   * for these issues — so without it a reader who opens one of the two
+   * 1891-03-14 issues sees a heading identical to the other's.
+   */
+  edition_label: string | null;
   /** `pages.length`, sent explicitly rather than inferred by the client. */
   page_count: number;
   /** Ordered by `page_number` ascending. Empty for a document with no pages. */

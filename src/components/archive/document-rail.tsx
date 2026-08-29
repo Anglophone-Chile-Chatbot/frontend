@@ -152,8 +152,17 @@ function RecentDocuments({ onOpenPicker }: { onOpenPicker?: () => void }) {
               <span className="font-heading w-full truncate text-[0.8125rem] text-foreground">
                 {doc.publication ?? doc.title}
               </span>
-              {date && (
-                <span className="numeric text-[0.6875rem] text-muted-foreground">{date}</span>
+              {/* The rail shows publication + date and nothing else, so it is
+                  the surface where the two same-day `Chilian Times` issues are
+                  *most* alike — two rows with identical text, one above the
+                  other. `edition_label` is non-null only for such a pair, so
+                  appending it here costs the other rows nothing. Truncated
+                  rather than wrapped: the rail is a fixed 240px column and a
+                  wrapping stem would push the rows to uneven heights. */}
+              {(date || doc.edition_label) && (
+                <span className="numeric w-full truncate text-[0.6875rem] text-muted-foreground">
+                  {[date, doc.edition_label].filter(Boolean).join(" · ")}
+                </span>
               )}
             </>
           );

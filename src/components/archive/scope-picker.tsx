@@ -301,6 +301,17 @@ function DocumentRow({
                 no text yet
               </span>
             )}
+            {/* Non-null only when another issue shares this publication and
+                date. It matters more here than anywhere else on the site: this
+                list drives a *checkbox*, so two indistinguishable rows mean a
+                reader scoping their question to one 1891-03-14 issue has no way
+                to know whether they picked the one they meant — and the answer
+                they get back would silently be about the other. */}
+            {document.edition_label && (
+              <span className="numeric text-[0.75rem] text-muted-foreground">
+                {document.edition_label}
+              </span>
+            )}
           </span>
         </span>
       </button>

@@ -179,7 +179,24 @@ function IssueCard({ issue }: { issue: DocumentSummary }) {
   );
 }
 
-/** The issue's identity line — the date is what distinguishes it on the shelf. */
+/**
+ * The issue's identity line — the date is what distinguishes it on the shelf,
+ * except when it doesn't.
+ *
+ * Two documents in the live corpus are both `The Chilian Times 1891-03-14`,
+ * four pages each: a date is not an identity here. `edition_label` is the
+ * backend's answer, and it arrives non-null **only** for such a pair, so this
+ * renders it unconditionally and the eight unambiguous issues stay clean.
+ *
+ * It is deliberately labelled `Source` and set in the mono/numeric face: it is
+ * the source file's stem, a fact about provenance, and it must not be mistaken
+ * for something the newspaper printed. The archive genuinely does not know
+ * which of the two is "the second edition" — one is headed *Supplement to "The
+ * Chilian Times"* on its own front page, but that is the paper's words on a
+ * scan, not a field anything has parsed — so naming it as one would be
+ * inventing a bibliographic fact in an archive whose entire value is that its
+ * facts are traceable.
+ */
 function IssueMeta({
   issue,
   date,
@@ -188,20 +205,30 @@ function IssueMeta({
   date: string | null;
 }) {
   return (
-    <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-      {date ? (
-        <time className="numeric text-[0.875rem] leading-snug text-foreground">
-          {date}
-        </time>
-      ) : (
-        // Falls back to the title rather than to a placeholder: an unreadable
-        // masthead leaves both `publication` and `issue_date` null, and the
-        // title is always set and usually still names the issue.
-        <span className="text-[0.875rem] leading-snug text-foreground">
-          {issue.title}
-        </span>
+    <>
+      <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        {date ? (
+          <time className="numeric text-[0.875rem] leading-snug text-foreground">
+            {date}
+          </time>
+        ) : (
+          // Falls back to the title rather than to a placeholder: an unreadable
+          // masthead leaves both `publication` and `issue_date` null, and the
+          // title is always set and usually still names the issue.
+          <span className="text-[0.875rem] leading-snug text-foreground">
+            {issue.title}
+          </span>
+        )}
+      </p>
+      {issue.edition_label && (
+        <p className="mt-0.5 flex items-baseline gap-1.5 text-[0.75rem] leading-snug">
+          <span className="eyebrow shrink-0">Source</span>
+          <span className="numeric truncate text-muted-foreground">
+            {issue.edition_label}
+          </span>
+        </p>
       )}
-    </p>
+    </>
   );
 }
 

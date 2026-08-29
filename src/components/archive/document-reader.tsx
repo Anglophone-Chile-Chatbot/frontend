@@ -228,6 +228,7 @@ export function DocumentReader({
       <ReaderHeader
         publication={document.publication ?? document.title}
         dateline={dateline}
+        editionLabel={document.edition_label}
         pageNumber={view === "read" ? (current?.page_number ?? null) : null}
         pageCount={document.page_count}
         figureTotal={figureTotal}
@@ -328,16 +329,26 @@ export function DocumentReader({
  *
  * Named as a publication and a date rather than as a document id, because that
  * is what a reader is holding — one issue of one newspaper, on one day.
+ *
+ * Which is exactly why `editionLabel` has to be here. The corpus holds two
+ * documents that are both *The Chilian Times*, both 14 March 1891, both four
+ * pages: for that pair the header alone is not an identity, and a reader who
+ * followed a link had no way to know which of the two they were reading. The
+ * backend sends the label only when a sibling exists, so this stays absent on
+ * every unambiguous issue.
  */
 function ReaderHeader({
   publication,
   dateline,
+  editionLabel,
   pageNumber,
   pageCount,
   figureTotal,
 }: {
   publication: string;
   dateline: string | null;
+  /** Non-null only when another issue shares this publication and date. */
+  editionLabel: string | null;
   /** Null on the grid views, where no single page is open. */
   pageNumber: number | null;
   pageCount: number;
@@ -378,6 +389,21 @@ function ReaderHeader({
             </>
           )}
         </p>
+        {/* Its own line rather than another `·`-separated item: this is the
+            only thing on the header that distinguishes this issue from another
+            one that is otherwise identical, and burying it in a run of page and
+            figure counts would hide the one fact the reader came for. Labelled
+            `Source` because it names the file the text was OCR'd from — the
+            archive does not know which of the pair the paper itself called a
+            second edition, and it will not guess one. */}
+        {editionLabel && (
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[0.75rem]">
+            <span className="eyebrow shrink-0">Source</span>
+            <span className="numeric break-all text-muted-foreground">
+              {editionLabel}
+            </span>
+          </p>
+        )}
       </div>
     </div>
   );

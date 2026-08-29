@@ -120,11 +120,36 @@ before showing anything, which is backwards. One sentence drove the whole chunk:
 browse the collection, open any issue, see its pictures, and search inside it — without ever
 guessing a keyword. That is now true.
 
-**Verified by construction, not in a browser — say so plainly.** Shakib asked for no Playwright and
-no testing pass this session, so this shipped on: a clean `tsc --noEmit`, a clean `eslint`, a clean
-`next build`, and live measurement of the backend it talks to (below). **Nobody has looked at it at
-375px yet.** That is the one gap, it is deliberate, and it is the first thing to do on the next pass
-— the Definition of Done asked for a real browser at 375px and that half is genuinely not met.
+**NOW VERIFIED IN A REAL BROWSER — 2026-08-29, follow-up pass.** The original ship was `tsc`/`eslint`/
+`next build` clean plus live backend measurement, with no browser check. That gap is now closed:
+dev server on 3417, Playwright at **375px and 1440px**, live Oracle backend. Everything in the chunk
+works. Measured:
+
+| surface | 375px | desktop 1440px |
+|---|---|---|
+| `/archive` catalogue — grouped by publication, year-spans ("1904–1905 · 2 issues"), page counts | ✅ no h-scroll (sw 375) | ✅ rail + catalogue + docked panel |
+| catalogue dual filter — `Mercury` → "3 issues match" (cards) **+** "25 passages inside the pages" (full-text), both labelled | ✅ | ✅ |
+| reader tabs **Read / Scans 8 / Figures 10** | ✅ all **44px** tall, hit-testable | ✅ |
+| Scans grid — 2-col mobile / 4-col desktop, `object-cover object-top`, lazy, per-page figure-count marks, masthead not cropped | ✅ no reflow, no h-scroll | ✅ |
+| Figures gallery — real ~33KB crops, sequential fill, "N figures were found", "region on the page" only on `Text`/`ComplexRegion`/`Table` bbox figures (4 of 20 on Star p1/p2), honest empty state | ✅ | ✅ |
+| within-issue search — `steamer` → "9 passages on 5 pages", rank-ordered jump chips (p.12 · p.1 · p.2 · p.6 · p.5), `?q=` in URL, passage highlighted via `findPassage`, page-jump shows "Page N — match" | ✅ no h-scroll | ✅ |
+| nav relabel "Ask" / "Browse", active-state underline | ✅ | ✅ |
+| console errors across the sweep | **0** (one 404 was a bad test-harness `fetch`, not the app) | — |
+
+**Nothing needed fixing.** Two pre-existing, out-of-scope notes confirmed still true, not touched:
+- Within-issue / catalogue search **snippets print raw markdown** — a `# THE VALPARAISO ENGLISH
+  MERCURY` leaked into one Mercury snippet. Known caveat (A5's "`/search` snippets still print raw
+  `|` rows"), same cause, different surface. Belongs in a backend snippet-cleanup follow-up, not here.
+- **Text / Scan sub-tabs and nav links measure 40px**, under the 44px rule — this is CHUNK 6 (W2)
+  debt, explicitly deferred; the *new* CHUNK 3 tabs are all 44px.
+- The docked viewer panel on `/archive` shows "Tap a citation number to read the original page here."
+  even though Browse has no citations — cosmetic, pre-dates this chunk (it's the shared shell from
+  the 2026-08-11 redesign), left as-is.
+
+**The two indistinguishable `The Chilian Times 14 Mar 1891` rows render identically** in both the
+catalogue and the desktop Collections rail — confirmed here, and **fixed by CHUNK 4 on 2026-08-29**:
+both surfaces now carry a `Source: <stem>` label, shown only for a same-day pair. See the CHUNK 4
+section below.
 
 **Measured live 2026-08-29 against the Oracle box before building anything** — these superseded
 guesses, and all agreed with what the plan already recorded:
@@ -202,7 +227,8 @@ guesses, and all agreed with what the plan already recorded:
       reader's Figures tab instead, where the page list is already loaded.
 - [x] **3f-4 — Nothing is keyed on title+date.** Cards, links, groups and React keys all use
       `document_id`. The two indistinguishable `The Chilian Times 1891-03-14` rows both render;
-      **labelling them is still CHUNK 4's job and was not attempted here.**
+      labelling them was CHUNK 4's job and **landed 2026-08-29** — see the CHUNK 4 section below.
+      The `document_id` keying is what made that a pure addition rather than a rewrite.
 
 **Not built, on purpose (scope discipline, per the plan):** saved searches, search history, user
 accounts, or anything needing persistence. Phase 1 is stateless; Phase 3 owns accounts.
@@ -218,20 +244,63 @@ accounts, or anything needing persistence. Phase 1 is stateless; Phase 3 owns ac
    in-flight abort deliberately stays in effect cleanup: a ref cannot be touched during render, and
    the debounce means a superseded request usually never went out.
 
-**Still open from the Definition of Done:** verification in a real browser at 375px and desktop,
-including "no horizontal scroll". Not done this session at Shakib's explicit instruction.
+**Definition of Done — now fully met.** Verified in a real browser at 375px and 1440px on
+2026-08-29 (follow-up pass, see the table above): from the front page, any issue's full scan set and
+figure set are reachable in ≤2 taps with no query typed; within-issue search jumps to matching pages;
+both surfaces are visually distinct; no horizontal scroll at 375px anywhere checked.
 
 ---
 
-## CHUNK 4 (frontend half) — the two identical catalogue rows
+## CHUNK 4 (frontend half) — ✅ DONE 2026-08-29. The two identical rows are labelled.
 
-`The Chilian Times 1891-03-14` appears **twice** in the live corpus, rendering as two identical rows:
-same publication, same date, nothing to tell them apart. Per Shakib's 2026-08-13 decision this is the
-legitimate *supplement* case, so it must be **labelled**, not deduplicated.
+**Was:** `The Chilian Times 1891-03-14` rendered as two byte-identical rows — same publication, same
+date, nothing to tell them apart — in the catalogue *and* in the desktop Collections rail. Per
+Shakib's 2026-08-13 decision this is the legitimate *supplement* case, so it had to be **labelled**,
+not deduplicated.
 
-- [ ] **4e — Show an edition/part label** once the backend exposes `source_stem` (CHUNK 4a/4b).
-      **Do not invent an edition number the paper never printed** — derive it from the source, or
-      show the stem, and be explicit about which it is.
+**Shipped.** The backend now sends `edition_label` on `DocumentSummary` and `DocumentPagesResponse`,
+non-null **only** when another document shares the publication and date, so every surface renders it
+unconditionally and the eight unambiguous issues stay clean. Four surfaces carry it:
+
+| surface | why it needed it |
+|---|---|
+| `/archive` catalogue card | the two cards were identical; `IssueMeta` so both the openable and the no-pages variant get it |
+| desktop **Collections** rail | shows publication + date and nothing else — the surface where the pair is *most* alike, two identical rows stacked |
+| document reader header | the header *is* a publication and a date, so opening one issue looked exactly like opening the other |
+| chat **scope picker** | the sharpest one: it drives a checkbox, so scoping a question to one 1891-03-14 issue could silently answer about the other |
+
+**It is rendered as `Source: <stem>`, never as an edition number** — deliberate, and the reason is
+worth keeping. Reading "2" out of `Chilean Times 2` and printing "Edition 2" would be inventing a
+bibliographic fact in a citation-traceable archive, *and it would be wrong*: that stem is the
+**supplement** (its page 1 reads `Supplement to "The Chilian Times"`) while `Chilean TImes 1` is the
+main issue. The stem is a true, checkable statement about provenance; an edition number is not.
+
+Small layout decisions, so they are not re-litigated: the rail truncates rather than wraps (fixed
+240px column, a wrapping stem would make rows uneven); the reader puts it on **its own line** rather
+than as another `·`-separated item, since burying the one distinguishing fact in a run of page and
+figure counts defeats the purpose.
+
+**Verified in a real browser 2026-08-29** — headless Chromium against the live Oracle backend, at
+**375px and 1440px**, plus a screenshot read back at 375px:
+
+| check | 375px | 1440px |
+|---|---|---|
+| catalogue cards carrying a `Source` label | **2 of 9** — the 1891-03-14 pair only | **2 of 9** |
+| the two labels | `Chilean Times 2` / `Chilean TImes 1` | same |
+| Collections rail rows | n/a (rail is `lg:` and up) | `14 Mar 1891 · Chilean Times 2` and `14 Mar 1891 · Chilean TImes 1`; the other 4 rows unchanged |
+| reader header, `184a87a6…` | `Source Chilean Times 2` | same |
+| reader header, `bcbe1b94…` | `Source Chilean TImes 1` | same |
+| horizontal scroll | **none** — `scrollWidth 375 === innerWidth 375` on catalogue and both readers | none |
+| console errors | **0** | **0** |
+
+`tsc --noEmit`, `eslint src`, and `next build` all clean (Next 16.2.10).
+
+**A note on which is which, because the names are actively misleading.** Stem `Chilean Times 2` is
+the **supplement** — its page 1 reads `# Supplement to "The Chilian Times"` — and `Chilean TImes 1`
+(sic, the typo is in the real filename) is the main issue. The root plan had guessed the pair was
+"Chilean Times 2" / "Chilean Times short"; it is not — `Chilean Times short` is a different issue
+entirely, 1891-02-07. This is exactly why the label shows the stem rather than a derived edition
+number: any inference from those names would have been backwards.
 
 ---
 
