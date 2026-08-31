@@ -6,6 +6,25 @@
 
 ---
 
+## ⚠️ DEPLOYING THIS REPO — pushing to `main` publishes NOTHING (found 2026-08-31)
+
+**Vercel is not connected to this GitHub repo.** Unlike the backend (which has real push-to-deploy
+CI/CD), a merge here reaches GitHub and stops there. This was found by shipping the CHUNK 11 fixes
+and then checking: **the live production deploy was 20 days old** while the code sat on GitHub
+looking shipped. Git history reading as "done" is exactly what makes this bite.
+
+**So: after any frontend change, deploy it yourself —**
+
+```
+cd frontend && npx vercel --prod --yes      # ~30s
+```
+
+Prod alias: `https://frontend-theta-bay-62.vercel.app`. **Verify on that URL, not localhost**, before
+calling frontend work shipped. Tracked as **I3** in root `plans.md` and `infra/plans.md`; the real
+fix (connecting the repo in the Vercel dashboard) needs Shakib and is not something a session can do.
+
+---
+
 ## READ FIRST — the chunk order is in root `plans.md` → "THE CHUNKS"
 
 **Frontend owns CHUNK 2 (the reader), CHUNK 3 (images + front door), and part of CHUNK 6.** The root
