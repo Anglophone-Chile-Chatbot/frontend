@@ -93,7 +93,11 @@ function ViewerTabs({
   hasImage: boolean;
 }) {
   const base = cn(
-    "flex min-h-[40px] flex-1 items-center justify-center gap-1.5",
+    // 44px, not 40: CLAUDE.md's tap-target floor. These are block-level flex
+    // buttons in their own row, so real height is correct here — unlike the
+    // inline citation chip, which pads its hit area with a pseudo-element
+    // because real size would break the answer's line box.
+    "flex min-h-[44px] flex-1 items-center justify-center gap-1.5",
     "text-[0.8125rem] font-medium transition-colors duration-[120ms]",
     "ease-[var(--ease-crisp)] border-b-2",
   );

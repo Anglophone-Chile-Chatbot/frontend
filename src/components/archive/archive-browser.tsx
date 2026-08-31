@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCatalogue } from "@/hooks/use-catalogue";
 import type { SearchResponse, SearchResult, ViewerSource } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
+import { flattenSnippetMarkdown } from "@/lib/snippet-text";
 import { cn } from "@/lib/utils";
 
 import { DocumentCatalogue } from "./document-catalogue";
@@ -363,12 +364,17 @@ function ResultRow({
  * just less decorated.
  */
 function Snippet({ text, query }: { text: string; query: string }) {
+  // Flatten first, then highlight — the marks are computed by splitting the
+  // rendered string, so highlighting the raw markdown and flattening after
+  // would mark offsets that no longer line up with what the reader sees.
+  const plain = flattenSnippetMarkdown(text);
+
   const terms = query
     .split(/\s+/)
     .map((term) => term.trim())
     .filter((term) => term.length > 2);
 
-  if (terms.length === 0) return <>{text}</>;
+  if (terms.length === 0) return <>{plain}</>;
 
   const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   // The capture group makes split() interleave matches at odd indices, so
@@ -377,7 +383,7 @@ function Snippet({ text, query }: { text: string; query: string }) {
 
   return (
     <>
-      {text.split(pattern).map((part, index) =>
+      {plain.split(pattern).map((part, index) =>
         index % 2 === 1 ? (
           <mark
             key={index}
