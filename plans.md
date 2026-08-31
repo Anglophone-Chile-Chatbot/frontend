@@ -321,6 +321,26 @@ states present on every fetching surface.
 
 ---
 
+## CHUNK 7 (frontend half) — DONE 2026-08-31. Next.js 16.2.10 → 16.3.3 (security).
+
+The July and August 2026 Next.js security releases patched an **unauthenticated RCE via AVIF image
+optimization** (a libheif flaw reached through `sharp`; the patched releases disable AVIF
+optimization until upstream propagates) and a **critical Windows path traversal**, CVE-2026-75604
+(CVSS 9.0), affecting apps using both routers on a Windows filesystem.
+
+**Real exposure here was low, and it is worth writing down why rather than just bumping:** this app
+uses `next/image` **nowhere** — every image is a plain `<img>` (`document-scans.tsx`,
+`document-figures.tsx`, `page-figures.tsx`, `source-viewer-body.tsx`), because scans are served
+through our own Route Handler proxy from Oracle — so the AVIF optimizer is never invoked. Deploys are
+Linux/Vercel, so the Windows traversal does not apply either. Bumped anyway: it is free, and
+"we happen not to use the vulnerable path" is a weaker position than "we are patched".
+
+`tsc --noEmit`, `npm run lint` and `next build` all clean on 16.3.3 (`eslint-config-next` bumped to
+match). **Note for measurement:** run the repo's own `npm run lint`; a bare `npx eslint src` resolves
+a different binary here and reports phantom errors.
+
+---
+
 ## Done (kept for context — do not re-do)
 - create-next-app scaffold: Next.js 16, TS, App Router, Tailwind v4, Turbopack, src-dir, `@/*` alias
 - shadcn init (base-nova preset) + components: button, card, input, avatar, badge, separator, scroll-area, skeleton, sonner, dialog, sheet, tabs, tooltip, dropdown-menu
