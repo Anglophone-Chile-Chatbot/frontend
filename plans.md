@@ -137,11 +137,14 @@ works. Measured:
 | console errors across the sweep | **0** (one 404 was a bad test-harness `fetch`, not the app) | — |
 
 **Nothing needed fixing.** Two pre-existing, out-of-scope notes confirmed still true, not touched:
-- Within-issue / catalogue search **snippets print raw markdown** — a `# THE VALPARAISO ENGLISH
-  MERCURY` leaked into one Mercury snippet. Known caveat (A5's "`/search` snippets still print raw
-  `|` rows"), same cause, different surface. Belongs in a backend snippet-cleanup follow-up, not here.
-- **Text / Scan sub-tabs and nav links measure 40px**, under the 44px rule — this is CHUNK 6 (W2)
-  debt, explicitly deferred; the *new* CHUNK 3 tabs are all 44px.
+- ~~Within-issue / catalogue search **snippets print raw markdown**~~ → ✅ **FIXED 2026-08-31
+  (CHUNK 11)**, and fixed in the *frontend*, not the backend as this line guessed: stored text must
+  keep its markdown (the section prefix is load-bearing for retrieval), so flattening is a rendering
+  concern. `src/lib/snippet-text.ts` → `flattenSnippetMarkdown()`, applied inside `Snippet`.
+  Note the surfaces differ from what this line assumed: the within-issue search renders **page
+  chips**, not text snippets, so it had no raw-markdown surface at all — checked, not assumed.
+- ~~**Text / Scan sub-tabs and nav links measure 40px**~~ → ✅ **FIXED 2026-08-31 (CHUNK 6b/6c)**,
+  both now 44px and measured in-browser.
 - The docked viewer panel on `/archive` shows "Tap a citation number to read the original page here."
   even though Browse has no citations — cosmetic, pre-dates this chunk (it's the shared shell from
   the 2026-08-11 redesign), left as-is.
@@ -304,17 +307,24 @@ number: any inference from those names would have been backwards.
 
 ---
 
-## CHUNK 6 (frontend half) — the 44px rule, still violated on the primary mobile affordance
+## CHUNK 6 (frontend half) — ✅ DONE 2026-08-31. Two were real; the third was a mis-measurement.
 
-CLAUDE.md calls 44px non-negotiable. Re-verified still present 2026-08-28, carried unfixed as W2
-across multiple sessions:
+- [x] **6b — `site-header.tsx`** — nav links `min-h-[40px]` → `min-h-[44px]`. Real height is correct
+      here: the header is `h-14` (56px), so a 44px child fits with room to spare.
+- [x] **6c — `source-viewer-body.tsx`** — Text/Scan tabs `min-h-[40px]` → `min-h-[44px]`. Same
+      reasoning — block-level flex children in their own row.
+- [x] **6d — `citation-chip.tsx` — NOT A DEFECT. This entry was wrong.** The chip already carried a
+      44×44px hit area via an `::after` pseudo-element. The "15×12px" figure measured the *visible*
+      chip, not the tap target — a wrong-layer measurement, the exact error CLAUDE.md's MEASURE THE
+      THING ITSELF rule describes. Confirmed by reading the computed `::after` style directly:
+      visible 16×13px, **hit area 44×44px**. It must *keep* using a pseudo-element rather than real
+      height, because real size on an inline element breaks the answer's line box — so "fixing" this
+      as originally written would have caused a regression.
+- [ ] **6e — Re-check the header wordmark centring** (recorded further down this file) — **still
+      open**, not touched in this pass.
 
-- [ ] **6b — `site-header.tsx:46`** — nav links `min-h-[40px]`.
-- [ ] **6c — `source-viewer-body.tsx:96`** — Text/Image tabs `min-h-[40px]`.
-- [ ] **6d — `citation-chip.tsx:43`** — `py-[0.05em]`, measured **15×12px**. **This one matters
-      most**: the inline citation chip is the primary mobile affordance of the entire product.
-- [ ] **6e — Re-check the header wordmark centring** (recorded further down this file) while in the
-      header anyway.
+**Verified in a real browser at 375px after the change**, not inferred from the classes: nav links
+44px tall, viewer tabs 172×44px, `scrollWidth == clientWidth == 375` (no horizontal overflow).
 
 **Clean, verified 2026-08-28 — do not re-audit:** no `any` types, no `console.log`, loading/error
 states present on every fetching surface.
