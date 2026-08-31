@@ -52,7 +52,10 @@ export function SiteHeader() {
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "relative flex min-h-[40px] items-center rounded-md px-2.5",
+                  // 44px, not 40: CLAUDE.md's tap-target floor. Fits the
+                  // h-14 (56px) header row with room to spare, so this is a
+                  // real height rather than a pseudo-element hit area.
+                  "relative flex min-h-[44px] items-center rounded-md px-2.5",
                   "text-[0.8125rem] transition-colors duration-[120ms]",
                   "ease-[var(--ease-crisp)]",
                   isActive
