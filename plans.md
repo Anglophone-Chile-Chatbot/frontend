@@ -1074,6 +1074,56 @@ Two lint findings during the work were real and fixed rather than suppressed: a 
 render in the zoom component (which would genuinely have failed to re-render, letting the transition
 lag the fingers through a pinch) and a dead `items` array left behind in the view switch.
 
+## W3 — the reader's UI/UX flow, which W2 measured and then failed to fix (2026-09-04, DONE)
+
+**This is a miss being corrected, and the miss should be recorded honestly.** W2's own audit wrote
+down "two stacked tab rows" and "~330px of chrome before a word of newspaper", then fixed the other
+five complaints and never came back to it. Shakib had listed "UI/UX massive confusion" explicitly.
+He raised it again — "did you do the UI/UX flow correction so that it follows an intuitive tabs and
+links? It feels classy but kinda cluttered sometimes" — and he was right both times.
+
+**The clutter, measured before touching anything (375x812):** the newspaper did not begin until
+**325px down**, leaving a 413px reading window — **49% of a phone screen was chrome**, in five
+stacked bands: site header 57px, issue header 115px, tab row 1 44px, search 46px, tab row 2 45px.
+
+**The real bug underneath it was information architecture, not spacing.** There were two independent
+states — a `view` of `read|scans|figures` and a `tab` of `text|image` — rendered as two tab rows
+stacked ~100px apart. That put **five controls on screen for three destinations**, and produced a
+genuine collision: row 1 offered **"Scans"** and row 2 offered **"Scan"**, one word apart. Verified
+live that they serve **the identical image URL** — `/pages/c9420422…/image` came back from both the
+grid's third tile and the Scan tab. No reader can distinguish those by name; that is the confusion,
+and no amount of restyling would have fixed it.
+
+**What changed.** The two axes are now one: `text | scan | plates`, one row, three genuinely parallel
+ways of looking at the sheet you are on. The all-sheets grid was never a *view* — choosing which
+sheet to read is **navigation** — so it moved to an "All 15 sheets" link in the header, opening as an
+overlay (Escape closes, focus moves to Close and returns to the opener). `SourceViewerBody` gained
+`showTabs`, false only in the reader; the citation sheet and the docked desktop panel keep their own
+Text/Scan switch, **verified unregressed** by opening a corpus search result at 1440px and confirming
+the panel still renders both tabs.
+
+The search box was a permanent 46px band for an occasional act, on a screen where reading — the
+constant act — was being squeezed. It is now an icon that expands on tap and **stays pinned open
+while a term is active**, so collapsing is never destructive. Results render only when there are
+some. The issue header was compacted from 115px: the back arrow is inline with the title instead of
+owning a 44px line, and the metadata is one row. Nothing was dropped.
+
+**Measured after:** chrome **49% → 34%**, newspaper begins **325px → 223px**, reading window
+**413px → 516px (+25%)**, tab rows **2 → 1**, "Scans"/"Scan" collision **gone**.
+
+**Vocabulary unified.** The tab said "Plates" while the page-jump list said "5 figures" and the scan
+note said "figures". One word for one thing, everywhere: plates.
+
+**Two tap-target regressions caught and fixed in the same pass, one of them self-inflicted:** the
+compacted back arrow came out 36px wide (mine, fixed to 44x44), and the pre-existing "Ask" header
+link was 43px — one pixel under, which is still under. The wordmark, previously a 15px line of type,
+is now a real 44px row. **At 375px there are now zero sub-44px controls in the reader**, against
+three before. No horizontal scroll. tsc, eslint and `next build` all clean.
+
+*(A `2x2px` reading on four plates during verification was pre-decode lazy-loaded images, not a
+defect — re-measured after scrolling each into view: 244–343px wide, all `complete`. Recorded because
+the first measurement looked like a bug and was not.)*
+
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
 - [ ] Cross-document pattern discovery UI (confirmed 2026-08-08) — surfaces connections/patterns

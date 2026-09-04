@@ -35,7 +35,12 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 w-full max-w-3xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
-          className="min-w-0 shrink font-heading text-[0.9375rem] leading-none tracking-tight text-foreground"
+          // A real 44px row rather than a 15px line of type: the wordmark is
+          // the way home and gets tapped like any other control.
+          className={cn(
+            "flex min-h-[44px] min-w-0 shrink items-center rounded-md",
+            "font-heading text-[0.9375rem] leading-none tracking-tight text-foreground",
+          )}
         >
           <span className="block truncate">Anglophone Chile</span>
         </Link>
@@ -55,7 +60,10 @@ export function SiteHeader() {
                   // 44px, not 40: CLAUDE.md's tap-target floor. Fits the
                   // h-14 (56px) header row with room to spare, so this is a
                   // real height rather than a pseudo-element hit area.
-                  "relative flex min-h-[44px] items-center rounded-md px-2.5",
+                  // `min-w-[44px]` as well as the height: "Ask" is a short
+                  // enough word that px-2.5 left it 43px wide — one pixel under
+                  // the floor, which is still under it.
+                  "relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md px-2.5",
                   "text-[0.8125rem] transition-colors duration-[120ms]",
                   "ease-[var(--ease-crisp)]",
                   isActive

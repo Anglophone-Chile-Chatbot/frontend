@@ -93,7 +93,9 @@ function ScanTile({
   const marks: string[] = [];
   if (!page.has_text) marks.push("blank");
   if (page.figure_count > 0) {
-    marks.push(page.figure_count === 1 ? "1 figure" : `${page.figure_count} figures`);
+    // "Plates" throughout — the tab, the captions and this grid all name the
+    // same thing, so they use the same word.
+    marks.push(page.figure_count === 1 ? "1 plate" : `${page.figure_count} plates`);
   }
 
   return (

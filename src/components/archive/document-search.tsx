@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Search, X } from "lucide-react";
+import { useRef, useState } from "react";
 
 import type { DocumentSearchHit, DocumentSearchStatus } from "@/hooks/use-document-search";
 import { cn } from "@/lib/utils";
@@ -101,7 +102,7 @@ export function DocumentSearch({
           )}
         </form>
 
-        <Results
+        <DocumentSearchResults
           hits={hits}
           total={total}
           isPartial={isPartial}
@@ -122,7 +123,7 @@ export function DocumentSearch({
  * reader is already looking at the issue, so the useful output is a set of
  * destinations, not a second reading surface competing with the page below.
  */
-function Results({
+export function DocumentSearchResults({
   hits,
   total,
   isPartial,
@@ -214,5 +215,124 @@ function Results({
         })}
       </ul>
     </div>
+  );
+}
+
+
+/**
+ * The search field alone, collapsed to an icon until it is wanted.
+ *
+ * **Why this changed (2026-09-04).** The full box was a permanent band between
+ * the two tab rows — measured at 46px of every screen, on a phone where the
+ * whole reader was already 49% chrome and the newspaper did not begin until
+ * 325px down a 812px viewport. Searching inside one issue is an occasional
+ * act; reading is the constant one, so the constant thing should not pay for
+ * the occasional one on every view.
+ *
+ * It expands on tap and **stays expanded while a term is active**, so a reader
+ * steering by their search never has the box collapse out from under them and
+ * can always see what they typed. Collapsing is therefore never destructive:
+ * the only way back to the icon is clearing the term, which the reader does
+ * deliberately.
+ */
+export function DocumentSearchField({
+  query,
+  onQueryChange,
+  onClear,
+  status,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  onClear: () => void;
+  status: DocumentSearchStatus;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // An active term pins it open — see the docstring. Derived rather than
+  // stored, so the two can never disagree.
+  const isOpen = expanded || query.length > 0;
+
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setExpanded(true);
+          // Focus after paint, or the field does not exist yet to receive it.
+          requestAnimationFrame(() => inputRef.current?.focus());
+        }}
+        aria-label="Search inside this issue"
+        aria-expanded={false}
+        className={cn(
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-md",
+          "text-muted-foreground transition-colors duration-[120ms]",
+          "ease-[var(--ease-crisp)] hover:bg-secondary hover:text-foreground",
+          "focus-visible:outline-2 focus-visible:outline-offset-2",
+          "focus-visible:outline-[var(--accent)]",
+        )}
+      >
+        <Search className="h-4 w-4" aria-hidden />
+      </button>
+    );
+  }
+
+  return (
+    <form
+      role="search"
+      // Submitting is a no-op — results already track the box as it is typed.
+      // Prevented so Enter on a phone keyboard does not reload the route and
+      // throw away the reader's position in the issue.
+      onSubmit={(event) => event.preventDefault()}
+      className={cn(
+        "animate-fade flex min-w-0 flex-1 items-center gap-2 rounded-lg border bg-card px-3",
+        "transition-[border-color] duration-[120ms] ease-[var(--ease-crisp)]",
+        "focus-within:border-[var(--accent)]",
+      )}
+    >
+      {status === "searching" ? (
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
+      ) : (
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      )}
+      <input
+        ref={inputRef}
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+        onBlur={() => {
+          // Collapse only when the reader left nothing behind.
+          if (query.length === 0) setExpanded(false);
+        }}
+        type="search"
+        inputMode="search"
+        enterKeyHint="search"
+        placeholder="Search this issue…"
+        aria-label="Search inside this issue"
+        className={cn(
+          "min-h-[44px] min-w-0 flex-1 bg-transparent outline-none",
+          // 16px avoids iOS zoom-on-focus.
+          "text-base sm:text-[0.875rem]",
+          "placeholder:text-muted-foreground",
+          "[&::-webkit-search-cancel-button]:hidden",
+        )}
+      />
+      {query.length > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            onClear();
+            setExpanded(false);
+          }}
+          aria-label="Clear the search"
+          className={cn(
+            "-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md",
+            "text-muted-foreground transition-colors duration-[120ms]",
+            "ease-[var(--ease-crisp)] hover:text-foreground",
+          )}
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      )}
+    </form>
   );
 }

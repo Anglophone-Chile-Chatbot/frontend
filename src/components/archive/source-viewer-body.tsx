@@ -30,12 +30,24 @@ export function SourceViewerBody({
   tab,
   onTabChange,
   passage,
+  showTabs = true,
 }: {
   status: "idle" | "loading" | "error";
   page: PageDetail | null;
   tab: "text" | "image";
   onTabChange: (tab: "text" | "image") => void;
   passage: string | null;
+  /**
+   * Whether to render the Text/Scan switch.
+   *
+   * False in the document reader, which owns a single merged tab row of its
+   * own (`Text / Scan / Plates`). Rendering this one there too is exactly the
+   * duplicated second row that produced the "Scans" vs "Scan" collision — two
+   * controls, one word apart, serving the identical image. The citation sheet
+   * and the docked desktop panel are unaffected and keep their own switch,
+   * because there is no outer row in either of those.
+   */
+  showTabs?: boolean;
 }) {
   // Which figure is open full-size. Held here rather than in either tab so the
   // scan overlay and the text gallery open the same viewer, and so switching
@@ -57,7 +69,9 @@ export function SourceViewerBody({
 
   return (
     <>
-      <ViewerTabs tab={tab} onChange={onTabChange} hasImage={page?.has_image ?? false} />
+      {showTabs && (
+        <ViewerTabs tab={tab} onChange={onTabChange} hasImage={page?.has_image ?? false} />
+      )}
       <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-5">
         {status === "loading" && <ViewerLoading />}
         {status === "error" && <ViewerError />}
@@ -513,8 +527,8 @@ function PageImage({
       {figures.length > 0 && (
         <p className="mt-2 font-sans text-[0.6875rem] leading-relaxed text-muted-foreground">
           {figures.length === 1
-            ? "One figure was found on this page — tap the marked area to see it."
-            : `${figures.length} figures were found on this page — tap a marked area to see one.`}
+            ? "One plate was found on this page — tap the marked area to see it."
+            : `${figures.length} plates were found on this page — tap a marked area to see one.`}
           {/* Only explain the dashed style when one is actually on screen. */}
           {figures.some((figure) => !isTightBox(figure)) &&
             " A dashed outline marks the region a figure belongs to rather than the image’s exact edges."}
