@@ -9,6 +9,7 @@ import { DocumentFigures } from "@/components/archive/document-figures";
 import { DocumentScans } from "@/components/archive/document-scans";
 import { DocumentSearch } from "@/components/archive/document-search";
 import { SourceViewerBody } from "@/components/archive/source-viewer-body";
+import { TabRail } from "@/components/archive/tab-rail";
 import { useDocumentFigures } from "@/hooks/use-document-figures";
 import {
   useDocumentReader,
@@ -433,45 +434,20 @@ function ViewSwitch({
   pageCount: number;
   figureTotal: number;
 }) {
-  const items = [
-    { id: "read" as const, label: "Read", icon: BookOpen, count: null },
-    { id: "scans" as const, label: "Scans", icon: Rows3, count: pageCount },
-    { id: "figures" as const, label: "Figures", icon: Images, count: figureTotal },
-  ];
 
   return (
     <div className="rule-b shrink-0 px-4 sm:px-6">
-      <div className="mx-auto flex w-full max-w-3xl" role="tablist">
-        {items.map((item) => {
-          const Icon = item.icon;
-          const isActive = view === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => onChange(item.id)}
-              className={cn(
-                "flex min-h-[44px] flex-1 items-center justify-center gap-1.5",
-                "border-b-2 text-[0.8125rem] font-medium",
-                "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
-                isActive
-                  ? "border-[var(--accent)] text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {item.label}
-              {item.count !== null && (
-                <span className="numeric text-[0.6875rem] text-muted-foreground">
-                  {item.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <TabRail
+        className="mx-auto w-full max-w-3xl"
+        ariaLabel="How to view this issue"
+        value={view}
+        onChange={onChange}
+        items={[
+          { id: "read" as const, label: "Read", icon: BookOpen, count: null },
+          { id: "scans" as const, label: "Scans", icon: Rows3, count: pageCount },
+          { id: "figures" as const, label: "Plates", icon: Images, count: figureTotal },
+        ]}
+      />
     </div>
   );
 }

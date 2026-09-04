@@ -1003,6 +1003,77 @@ Do not batch them — A1 alone is a visible win.
 
       tsc, eslint and `next build` all clean, including after the placement-rule fix.
 
+## W2 — the reader made to look like a newspaper (2026-09-04, DONE)
+
+Shakib's report: literal hashtags on the page, "UI/UX massive confusion", "no animation smoothness
+at all", no zoom in/out, images not centred, and captions not tagged under the image the way an
+actual newspaper sets them. Studied the code first, then verified every single one in a real browser
+before changing anything. All five were real, and one extra bug fell out of the audit.
+
+**1. Literal `#` / `##` / `###` on the page — fixed.** `HEADING_RE` was `/^(#{1,6})\s+(.*)$/`, which
+*requires* whitespace after the hashes. The OCR pipeline emits genuinely empty headings — a bare
+`###` on its own line, used as a separator between boxed advertisements — so those failed the match,
+fell through to the paragraph branch, and printed as literal hash characters. **14 of them on the
+front page of The Star of Chile 1905-01-14**, i.e. the first thing a reader sees. Made the body
+capture optional so a bare `###` now matches as an empty heading and hits the existing `if (!body)
+continue` drop. Measured after: **14 → 0 literal hash paragraphs, with all 23 real headings still
+rendering** — the fix drops separators, never content. Chose the parser layer over `normalize.py`
+(Shakib's call): no re-ingest, works on all 9 issues immediately, and `pages.raw_text` stays a
+faithful record of what the pipeline actually produced.
+
+**2. No zoom, and a scan whose detail was being thrown away — fixed, and this was the worst of them.**
+The stored sheets are 1630×2225 but were painted at whatever width the column happened to be:
+measured live at **728px on a 1440px desktop and 343px at 375px — 2.24× and 4.75× of already-
+downloaded detail discarded**, with *zero* zoom controls anywhere on the page. A reader could see
+that print existed and could not read it, which for an archive whose entire point is reading the
+primary source is the central failure, not a polish item. New `zoomable-image.tsx`: pinch, double-tap,
+drag-to-pan, Ctrl/⌘-wheel, and three 44×44 discrete controls. **The ceiling is derived, never a round
+number** — `naturalWidth / fittedWidth`, so zoom stops exactly at 1:1 with the file rather than
+magnifying JPEG artefacts into something a reader might mistake for print. Verified: clicking "Zoom
+to full detail" gives `scale(2.245)` → 1630px displayed from a 1630px file, ratio 1.00. Hand-rolled
+rather than a dependency: it is one transform on one `<img>`, and `motion` is *already* in
+package.json imported nowhere — adding a second unused animation dep would be the wrong direction.
+
+**3. Images not centred — fixed.** Every figure was `block w-full max-w-sm`, pinned hard left.
+Measured: **0px gap left against 249px right in a 633px column.** Now centred via the new `Plate`
+component — measured after at 163/163 and 316/316.
+
+**4. Captions not formally tagged — fixed.** The whole reader contained **zero `<figure>` and zero
+`<figcaption>` elements**; every caption was a `<span>` reading "Figure 3". Now a real
+`<figure>`/`<figcaption>` with the period newspaper cut line: hairline rule, centred, letter-spaced
+small caps. **Deliberate limit, and it must stay:** the API carries no caption text (`PageFigure` has
+only `figure_index`, `block_type`, `bbox`, `text_anchor`) and OCR captioning is disabled on purpose,
+because model-invented caption text next to a scan would be fabrication in an archive whose value is
+traceability. So the slot is *styled* like a cut line but filled only with what the archive actually
+knows — plate number, page, and an honest "region of the sheet" note when the bbox is loose. The
+typography is editorial; the words stay honest. Renamed Figure → **Plate** (period-correct, and it
+distinguishes the archive's numbering from anything the paper printed). Issue-wide gallery numbers
+run across the issue, because `figure_index` is page-relative and printed "Plate 1" twice.
+
+**5. "No animation smoothness at all" — fixed, and the measurement was damning.** Of 155 elements on
+the page, **17 had any transition and every single one was a colour/border-colour hover**. Not one
+transform, opacity or layout transition existed in the entire reader. Both tab rows hard-coded
+`border-b-2` per button, so the active rule was a property of whichever button was selected — two
+different elements, which makes an animation between them structurally impossible. New `tab-rail.tsx`
+owns **one** absolutely-positioned rule moved by transform. Verified travelling 512px over 160ms
+instead of snapping. Page turns now play a 150ms `turn-page` entrance, keyed by page id so it
+actually replays on mount. After: 23 transitions, 3 of them real transform transitions.
+
+**6. Bonus, found during the audit: the lightbox was a broken modal.** It declared `role="dialog"`
+`aria-modal="true"` with **no Escape handler, no focus move, and no focus restore** — confirmed by
+dispatching a real keydown at the live page, which left it mounted. Also `w-full max-w-3xl`
+*upscaled* a 306px crop to 736px, **2.41× past its own pixels**, and called the blur "full size".
+All fixed; verified opens → focus lands on Close → Escape closes.
+
+**Verification:** tsc clean, eslint clean, `next build` clean. At 375px: no horizontal scroll
+(scrollWidth === clientWidth === 375), every control I added ≥44px. Two pre-existing sub-44px targets
+remain in `site-header.tsx` (wordmark 15px tall; "Ask" 43px wide, one pixel under) — **untouched,
+out of this pass's scope, and left here so they are not lost.**
+
+Two lint findings during the work were real and fixed rather than suppressed: a ref read during
+render in the zoom component (which would genuinely have failed to re-render, letting the transition
+lag the fingers through a pinch) and a dead `items` array left behind in the view switch.
+
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
 - [ ] Cross-document pattern discovery UI (confirmed 2026-08-08) — surfaces connections/patterns

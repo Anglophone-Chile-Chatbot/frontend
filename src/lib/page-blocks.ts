@@ -69,7 +69,27 @@ export type PageBlock =
       end: number;
     };
 
-const HEADING_RE = /^(#{1,6})\s+(.*)$/;
+/**
+ * An ATX heading. The body is optional, and that is the load-bearing part.
+ *
+ * The OCR pipeline emits *empty* headings — a bare `#`, `##` or `###` on its
+ * own line, with no text after the hashes. They are real in the corpus: 14 of
+ * them on the front page of *The Star of Chile*, 1905-01-14 alone, where they
+ * separate one boxed advertisement from the next but carry no words of their
+ * own.
+ *
+ * This regex used to be `/^(#{1,6})\s+(.*)$/`, which *required* whitespace
+ * after the hashes. A bare `###` therefore failed to match, fell through to
+ * the paragraph branch below, and was printed to the reader as literal `###`
+ * characters — on the first page of the first issue in the archive.
+ *
+ * Making the body optional means such a line now matches as a heading with an
+ * empty body, and the existing `if (!body) continue` drop below discards it.
+ * An empty heading is a separator the paper expressed typographically, not a
+ * word it printed, so dropping it is transcription rather than editing: no
+ * text the newspaper actually carried is lost.
+ */
+const HEADING_RE = /^(#{1,6})(?:\s+(.*))?$/;
 
 /**
  * A markdown pipe-table row: starts with `|` once trimmed.
@@ -162,7 +182,10 @@ export function parsePageBlocks(text: string | null): ParsedBlock[] {
     const heading = HEADING_RE.exec(line);
 
     if (heading) {
-      const body = heading[2].trim();
+      // `heading[2]` is undefined for a bare `###` — the capture group is
+      // optional now. Coalescing to "" routes it into the same drop below that
+      // already handled `##   ` (hashes followed only by whitespace).
+      const body = (heading[2] ?? "").trim();
       if (!body) continue;
       blocks.push({
         kind: "heading",

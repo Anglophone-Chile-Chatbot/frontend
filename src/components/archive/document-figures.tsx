@@ -3,7 +3,8 @@
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
-import { FigureLightbox, isTightBox } from "@/components/archive/page-figures";
+import { FigureLightbox } from "@/components/archive/page-figures";
+import { Plate } from "@/components/archive/plate";
 import type { DocumentFigure } from "@/hooks/use-document-figures";
 import { cn } from "@/lib/utils";
 
@@ -75,76 +76,54 @@ export function DocumentFigures({
       {shown.length > 0 && (
         <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
           {shown.length === 1
-            ? "One figure was found in this issue."
-            : `${shown.length} figures were found across this issue.`}{" "}
+            ? "One plate was found in this issue."
+            : `${shown.length} plates were found across this issue.`}{" "}
           Tap one to see it full size, or open the page it was printed on.
         </p>
       )}
 
       {shown.length > 0 && (
-        <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {shown.map((entry) => (
-            <li key={entry.figure.figure_id} className="animate-rise">
-              <div
-                className={cn(
-                  "overflow-hidden rounded-md border bg-card",
-                  "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
-                  "focus-within:border-[var(--accent)]/60 hover:border-[var(--accent)]/60",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => setZoomed(entry)}
-                  aria-label={`Figure ${entry.figure.figure_index + 1} from page ${entry.pageNumber} — open full size`}
-                  className={cn(
-                    "block w-full text-left",
-                    "focus-visible:outline-2 focus-visible:-outline-offset-2",
-                    "focus-visible:outline-[var(--accent)]",
-                  )}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/figures/${entry.figure.figure_id}/image`}
-                    alt={`Figure ${entry.figure.figure_index + 1} from page ${entry.pageNumber}`}
-                    className="h-auto w-full bg-background"
-                    loading="lazy"
-                    decoding="async"
-                    // A crop whose file is missing is dropped rather than left
-                    // as a broken image: the tile would otherwise claim a
-                    // figure exists and show nothing.
-                    onError={() => drop(entry.figure.figure_id)}
-                  />
-                </button>
-
-                {/* The page link is a separate control from the zoom, not a
-                    nested one — a button inside a button is invalid and the
-                    inner one is unreachable by keyboard. */}
+        /* Plates, one per row and centred, rather than a four-up thumbnail
+           grid. This is a gallery *of a newspaper's engravings*, and each one
+           gets the ruled cut line the paper would have set beneath it — the
+           grid rendered them as UI cards with a counter, with no `<figure>` or
+           `<figcaption>` element on the page at all (measured 2026-09-04).
+           `sm:grid-cols-2` keeps a wide screen from running one narrow column
+           down an enormous page. */
+        <div className="mt-1 sm:grid sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-3">
+          {shown.map((entry, index) => (
+            <div key={entry.figure.figure_id} className="animate-rise">
+              <Plate
+                figure={entry.figure}
+                pageNumber={entry.pageNumber}
+                // Numbered across the whole issue. `figure_index` is
+                // page-relative, so using it here would print "Plate 1" twice
+                // in one gallery — once for page 2 and again for page 3.
+                label={`Plate ${index + 1}`}
+                onSelect={() => setZoomed(entry)}
+                onError={() => drop(entry.figure.figure_id)}
+              />
+              {/* The way back into the issue. Separate from the plate's own
+                  zoom control, not nested inside it — a button within a button
+                  is invalid and the inner one is unreachable by keyboard. */}
+              <div className="-mt-3 mb-6 flex justify-center">
                 <button
                   type="button"
                   onClick={() => onOpenPage(entry.pageNumber)}
                   className={cn(
-                    "rule-t flex min-h-[44px] w-full items-center justify-between gap-2",
-                    "px-2 font-sans text-[0.6875rem] leading-snug text-muted-foreground",
+                    "inline-flex min-h-[44px] items-center gap-1 px-3",
+                    "font-sans text-[0.75rem] text-[var(--accent)]",
                     "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
-                    "hover:bg-secondary hover:text-foreground",
-                    "focus-visible:outline-2 focus-visible:-outline-offset-2",
-                    "focus-visible:outline-[var(--accent)]",
+                    "hover:text-foreground focus-visible:outline-2",
+                    "focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
                   )}
                 >
-                  <span className="min-w-0">
-                    <span className="numeric block text-foreground">
-                      Page {entry.pageNumber}
-                    </span>
-                    {!isTightBox(entry.figure) && (
-                      <span className="block text-[0.625rem]">region on the page</span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-[var(--accent)]">Read</span>
+                  Read page {entry.pageNumber}
                 </button>
               </div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
       {status === "loading" && (

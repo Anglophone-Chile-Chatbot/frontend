@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { PageFigure } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+
+import { isTightBox, Plate, plateLabel } from "./plate";
+import { ZoomableImage } from "./zoomable-image";
 
 /**
  * Figures on a page: boxes over the scan, an inline crop in the transcription,
@@ -48,21 +51,13 @@ import { cn } from "@/lib/utils";
  */
 const MIN_CROP_AREA_PX = 4_000;
 
-/** Block types whose bbox bounds the image itself rather than a wider region. */
-const IMAGE_TIGHT_TYPES = new Set(["Picture", "Figure"]);
-
 /**
- * Whether this figure's bbox can be trusted as the crop's frame.
- *
- * On `Picture`/`Figure` (56 of 66 live figures) the box agrees with the crop's
- * aspect ratio to a median 0.6%. On `Text`/`ComplexRegion`/`Table` it bounds the
- * enclosing region — a whole advertisement, an engraving plus its ad copy — and
- * diverges by a median ~56%. Drawing a crop stretched into a region box would
- * misrepresent the scan, so those are marked as a region instead.
+ * `isTightBox` and the plate label now live in `plate.tsx`, beside the
+ * `<figure>`/`<figcaption>` markup that is their main consumer. Re-exported
+ * here so the many existing importers of this module keep working — one
+ * definition, not two that can drift.
  */
-export function isTightBox(figure: PageFigure): boolean {
-  return figure.block_type !== null && IMAGE_TIGHT_TYPES.has(figure.block_type);
-}
+export { isTightBox, plateLabel } from "./plate";
 
 function boxStyle(figure: PageFigure): React.CSSProperties {
   const [x1, y1, x2, y2] = figure.bbox;
@@ -74,9 +69,9 @@ function boxStyle(figure: PageFigure): React.CSSProperties {
   };
 }
 
-/** A figure's human label — "Figure 3", 1-based for the reader. */
+/** A figure's human label — "Plate 3", 1-based for the reader. */
 function figureLabel(figure: PageFigure): string {
-  return `Figure ${figure.figure_index + 1}`;
+  return plateLabel(figure);
 }
 
 /**
@@ -165,58 +160,57 @@ export function FigureGallery({
   return (
     <section className={cn("mt-8", shown.length === 0 && "hidden")}>
       <h4 className="rule-b font-sans text-[0.6875rem] tracking-[0.08em] text-muted-foreground uppercase pb-1.5">
-        {shown.length === 1 ? "Figure on this page" : "Figures on this page"}
+        {shown.length === 1 ? "Plate on this page" : "Plates on this page"}
       </h4>
-      <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {/* One centred column rather than a tile grid: these are the figures the
+          pipeline could not anchor into the text, so they are being presented
+          as plates in their own right, and a newspaper sets a plate centred
+          under a rule — not as a row of thumbnails. */}
+      <div className="mt-1">
         {shown.map((figure) => (
-          <li key={figure.figure_id}>
-            <button
-              type="button"
-              onClick={() => onSelect(figure)}
-              className={cn(
-                "group block w-full overflow-hidden rounded-md border bg-card text-left",
-                "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
-                "hover:border-[var(--accent)]/60 focus-visible:outline-2",
-                "focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
-              )}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/figures/${figure.figure_id}/image`}
-                alt={`${figureLabel(figure)} from this page`}
-                className="h-auto w-full bg-background"
-                loading="lazy"
-                onLoad={(event) => {
-                  const image = event.currentTarget;
-                  const area = image.naturalWidth * image.naturalHeight;
-                  if (area > 0 && area < MIN_CROP_AREA_PX) drop(figure.figure_id);
-                }}
-                // A crop whose file is missing is dropped rather than left as a
-                // broken image: the row would otherwise claim a figure exists
-                // and show nothing.
-                onError={() => drop(figure.figure_id)}
-              />
-              <span className="block px-2 py-1.5 font-sans text-[0.6875rem] text-muted-foreground">
-                {figureLabel(figure)}
-                {!isTightBox(figure) && (
-                  <span className="block text-[0.625rem]">region on the page</span>
-                )}
-              </span>
-            </button>
-          </li>
+          <Plate
+            key={figure.figure_id}
+            figure={figure}
+            onSelect={onSelect}
+            onLoad={(event) => {
+              const image = event.currentTarget;
+              const area = image.naturalWidth * image.naturalHeight;
+              if (area > 0 && area < MIN_CROP_AREA_PX) drop(figure.figure_id);
+            }}
+            // A crop whose file is missing is dropped rather than left as a
+            // broken image: the row would otherwise claim a figure exists
+            // and show nothing.
+            onError={() => drop(figure.figure_id)}
+          />
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
 
 /**
- * One figure at full size, over the viewer.
+ * One figure at full size, over the viewer — now actually readable.
  *
  * Deliberately a plain overlay rather than the shadcn `Dialog`: the viewer is
  * already a sheet on mobile, and nesting a dialog inside a sheet fights over
- * focus trapping and body scroll lock. This needs neither — it is a single
- * image with a close control.
+ * focus trapping and body scroll lock.
+ *
+ * **Three real bugs fixed here, all verified live 2026-09-04.**
+ *
+ * 1. **Escape did nothing.** The overlay declared `role="dialog"` and
+ *    `aria-modal="true"` with no key handler at all, so the one gesture every
+ *    reader tries first left them stuck behind a picture with only a small
+ *    "Close" link out. Confirmed by dispatching a real `keydown` at the live
+ *    page: the dialog stayed mounted.
+ * 2. **Focus was neither taken nor returned.** An `aria-modal` overlay that
+ *    never moves focus is a broken contract for a keyboard or screen-reader
+ *    user — tab order stayed behind it, on the page they could not see. Focus
+ *    now moves to the close control on open and returns to whatever opened the
+ *    overlay on close.
+ * 3. **"Full size" was an upscale.** `w-full max-w-3xl` stretched a 306×286
+ *    crop to 736px — **2.41× past its own pixels** — and called the blur full
+ *    size. `ZoomableImage` caps zoom at 1:1 with the file and starts fitted,
+ *    so "full size" now means what it says.
  */
 export function FigureLightbox({
   figure,
@@ -225,6 +219,27 @@ export function FigureLightbox({
   figure: PageFigure;
   onClose: () => void;
 }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    // Remember who opened this, so focus can go home afterwards.
+    const opener = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      opener?.focus?.();
+    };
+  }, [onClose]);
+
   return (
     <div
       // Fully opaque, not a translucent scrim: the page behind is dense
@@ -235,26 +250,32 @@ export function FigureLightbox({
       aria-modal="true"
       aria-label={`${figureLabel(figure)}, full size`}
     >
-      <div className="flex items-center justify-between gap-3 pb-3">
-        <p className="font-sans text-[0.75rem] text-muted-foreground">
+      <div className="rule-b flex items-center justify-between gap-3 pb-3">
+        <p className="font-sans text-[0.75rem] tracking-[0.08em] uppercase text-muted-foreground">
           {figureLabel(figure)}
           {!isTightBox(figure) && " · region on the page"}
         </p>
         <button
+          ref={closeRef}
           type="button"
           onClick={onClose}
           // 44px minimum: this is the only way out of the overlay on a phone.
-          className="min-h-[44px] min-w-[44px] px-2 font-sans text-[0.8125rem] text-foreground underline-offset-4 hover:underline"
+          className={cn(
+            "min-h-[44px] min-w-[44px] rounded-md px-3 font-sans text-[0.8125rem]",
+            "text-foreground transition-colors duration-[120ms]",
+            "ease-[var(--ease-crisp)] hover:bg-secondary",
+            "focus-visible:outline-2 focus-visible:outline-offset-2",
+            "focus-visible:outline-[var(--accent)]",
+          )}
         >
           Close
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto py-3">
+        <ZoomableImage
           src={`/api/figures/${figure.figure_id}/image`}
           alt={`${figureLabel(figure)}, full size`}
-          className="mx-auto h-auto w-full max-w-3xl rounded-md border bg-card"
+          className="w-full max-w-3xl"
         />
       </div>
     </div>

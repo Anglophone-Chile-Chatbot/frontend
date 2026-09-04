@@ -9,6 +9,9 @@ import {
   FigureOverlay,
   isTightBox,
 } from "@/components/archive/page-figures";
+import { Plate } from "@/components/archive/plate";
+import { TabRail } from "@/components/archive/tab-rail";
+import { ZoomableImage } from "@/components/archive/zoomable-image";
 import type { PageDetail, PageFigure } from "@/lib/api/types";
 import { parsePageBlocks, splicePageFigures, type PageBlock } from "@/lib/page-blocks";
 import { findPassage, type MatchKind } from "@/lib/passage-match";
@@ -62,7 +65,16 @@ export function SourceViewerBody({
           page &&
           (tab === "text" ? (
             <>
-              <PageText text={page.raw_text} passage={passage} figures={figures} onSelectFigure={setZoomed} />
+              {/* Keyed by page id so React remounts the article on a page turn
+                  — a CSS entrance animation only replays on mount, and without
+                  this the text would swap with no motion at all. */}
+              <PageText
+                key={page.page_id}
+                text={page.raw_text}
+                passage={passage}
+                figures={figures}
+                onSelectFigure={setZoomed}
+              />
               <FigureGallery
                 figures={figures.filter((figure) => figure.text_anchor === null)}
                 onSelect={setZoomed}
@@ -82,7 +94,14 @@ export function SourceViewerBody({
   );
 }
 
-/** Text / Image switch. Kept as buttons — two options don't warrant tabs. */
+/**
+ * Text / Scan switch.
+ *
+ * Now a `TabRail`, so the active rule *slides* between the two rather than
+ * being repainted in a new place. It previously hard-coded `border-b-2` on
+ * each button, which made the rule a property of whichever button was
+ * selected — two different elements, so nothing could travel between them.
+ */
 function ViewerTabs({
   tab,
   onChange,
@@ -92,50 +111,17 @@ function ViewerTabs({
   onChange: (tab: "text" | "image") => void;
   hasImage: boolean;
 }) {
-  const base = cn(
-    // 44px, not 40: CLAUDE.md's tap-target floor. These are block-level flex
-    // buttons in their own row, so real height is correct here — unlike the
-    // inline citation chip, which pads its hit area with a pseudo-element
-    // because real size would break the answer's line box.
-    "flex min-h-[44px] flex-1 items-center justify-center gap-1.5",
-    "text-[0.8125rem] font-medium transition-colors duration-[120ms]",
-    "ease-[var(--ease-crisp)] border-b-2",
-  );
-
   return (
-    <div className="rule-b flex px-4 sm:px-5" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === "text"}
-        onClick={() => onChange("text")}
-        className={cn(
-          base,
-          tab === "text"
-            ? "border-[var(--accent)] text-foreground"
-            : "border-transparent text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <FileText className="h-3.5 w-3.5" />
-        Text
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={tab === "image"}
-        onClick={() => onChange("image")}
-        className={cn(
-          base,
-          tab === "image"
-            ? "border-[var(--accent)] text-foreground"
-            : "border-transparent text-muted-foreground hover:text-foreground",
-          !hasImage && "opacity-55",
-        )}
-      >
-        <ImageIcon className="h-3.5 w-3.5" />
-        Scan
-      </button>
-    </div>
+    <TabRail
+      className="rule-b px-4 sm:px-5"
+      ariaLabel="Page view"
+      value={tab}
+      onChange={onChange}
+      items={[
+        { id: "text" as const, label: "Text", icon: FileText },
+        { id: "image" as const, label: "Scan", icon: ImageIcon, muted: !hasImage },
+      ]}
+    />
   );
 }
 
@@ -204,7 +190,12 @@ function PageText({
   }
 
   return (
-    <article className="font-text-serif measure pt-4 text-[0.9375rem] leading-[1.7] text-foreground/90">
+    <article
+      // Re-keyed per page by the caller, so a page turn plays the 150ms
+      // `turn-page` entrance instead of the text simply being replaced between
+      // two frames with nothing connecting them.
+      className="animate-turn-page font-text-serif measure pt-4 text-[0.9375rem] leading-[1.7] text-foreground/90"
+    >
       {passage && <MatchNote kind={match?.kind ?? null} />}
       {blocks.map((block, index) => {
         const key = `${block.start}-${index}`;
@@ -268,6 +259,12 @@ function PageText({
  * Only reached for figures with a real `text_anchor` — `splicePageFigures`
  * never emits a `figure` block for one that lacks it, so this component
  * never has to decide what "no anchor" should look like inline.
+ *
+ * Now a `Plate`: a centred `<figure>` with a ruled `<figcaption>` beneath it,
+ * which is how the paper itself set a cut into a column of type. It was
+ * previously a left-pinned `max-w-sm` button — measured 2026-09-04 at 0px of
+ * gap on the left against 249px on the right in a 633px column, with no
+ * `<figure>` or `<figcaption>` element anywhere on the page.
  */
 function InlineFigure({
   figure,
@@ -276,30 +273,7 @@ function InlineFigure({
   figure: PageFigure;
   onSelect: (figure: PageFigure) => void;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(figure)}
-      className={cn(
-        "group my-4 block w-full max-w-sm overflow-hidden rounded-md border bg-card text-left",
-        "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
-        "hover:border-[var(--accent)]/60 focus-visible:outline-2",
-        "focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
-      )}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/figures/${figure.figure_id}/image`}
-        alt={`Figure ${figure.figure_index + 1} from this page`}
-        className="h-auto w-full bg-background"
-        loading="lazy"
-      />
-      <span className="block px-2 py-1.5 font-sans text-[0.6875rem] text-muted-foreground">
-        Figure {figure.figure_index + 1}
-        {!isTightBox(figure) && <span className="block text-[0.625rem]">region on the page</span>}
-      </span>
-    </button>
-  );
+  return <Plate figure={figure} onSelect={onSelect} />;
 }
 
 /**
@@ -520,19 +494,22 @@ function PageImage({
 
   return (
     <div className="pt-4">
-      <div className="relative">
-        {/* Plain <img>: scans are proxied through a Route Handler and are not
-            known to the Next image optimizer at build time. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`/api/pages/${pageId}/image`}
-          alt="Newspaper page scan"
-          className="animate-fade block h-auto w-full rounded-md border bg-card"
-          loading="lazy"
-          onLoad={() => setLoaded(true)}
-        />
-        {loaded && <FigureOverlay figures={figures} onSelect={onSelectFigure} />}
-      </div>
+      {/* The scan is the primary source, so it gets real magnification.
+          Measured live 2026-09-04: the stored sheet is 1630x2225 but was being
+          painted at 728px on desktop and 343px at 375px — 2.24x and 4.75x of
+          already-downloaded detail discarded, with no zoom control anywhere on
+          the page. A reader could see that print existed and could not read
+          it. `ZoomableImage` caps at 1:1 with the file, so the ceiling is the
+          scan's own resolution rather than an invented number. */}
+      <ZoomableImage
+        src={`/api/pages/${pageId}/image`}
+        alt="Newspaper page scan"
+        className="animate-fade"
+        onLoad={() => setLoaded(true)}
+        overlay={
+          loaded ? <FigureOverlay figures={figures} onSelect={onSelectFigure} /> : null
+        }
+      />
       {figures.length > 0 && (
         <p className="mt-2 font-sans text-[0.6875rem] leading-relaxed text-muted-foreground">
           {figures.length === 1

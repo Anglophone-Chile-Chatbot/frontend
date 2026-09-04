@@ -342,9 +342,26 @@
   }
 }
 
+/* A page turn. Short and lateral — the sheet is replaced, not dissolved.
+   6px of travel is the whole distance: enough that the eye registers the page
+   as new, small enough that it never reads as a slide transition. */
+@keyframes turn-page {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @layer utilities {
   .animate-rise {
     animation: rise 160ms var(--ease-crisp) both;
+  }
+  .animate-turn-page {
+    animation: turn-page 150ms var(--ease-crisp) both;
   }
   .animate-fade {
     animation: fade 120ms var(--ease-crisp) both;
