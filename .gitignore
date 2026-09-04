@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Knowledge-graph output from the graphify hook — generated, never source.
+graphify-out/
