@@ -20,15 +20,22 @@ cd frontend && npx vercel --prod --yes      # ~30s
 ```
 
 Prod alias: `https://frontend-theta-bay-62.vercel.app`. **Verify on that URL, not localhost**, before
-calling frontend work shipped. Tracked as **I3** in root `plans.md` and `infra/plans.md`; the real
+calling frontend work shipped. Tracked as **I3** in `infra/plans.md`; the real
 fix (connecting the repo in the Vercel dashboard) needs Shakib and is not something a session can do.
 
 ---
 
-## READ FIRST — the chunk order is in root `plans.md` → "THE CHUNKS"
+## READ FIRST — this file is authoritative for the frontend; root `plans.md` is RETIRED
 
-**Frontend owns CHUNK 2 (the reader), CHUNK 3 (images + front door), and part of CHUNK 6.** The root
-file is the cross-repo tiebreaker and wins over any "START HERE" here.
+**Root `plans.md` was retired 2026-09-16** and is no longer read at session start. It is not the
+cross-repo tiebreaker any more — there is no tiebreaker above the per-repo files, and where they
+disagree, the repo that owns the code owns the answer. Anything still open in root was moved into the
+owning repo in that same pass (the **D-series** pipeline audit and **C5** went to `backend/plans.md`);
+the archived copy is `plans.archive.md` at the root, kept for history only. Do not restore a
+dependency on it.
+
+**Frontend owns CHUNK 2 (the reader), CHUNK 3 (images + front door), and part of CHUNK 6.** All CHUNK
+work is complete — "THE CHUNKS" had zero open items at retirement, so nothing was carried across.
 
 **Next.js 16, not 15** — `params` is async in route handlers and pages
 (`const { documentId } = await params`). Read `node_modules/next/dist/docs/` before writing Next
@@ -580,15 +587,22 @@ stale. Always check local UI at `http://localhost:3417`, never bare `localhost:3
 
 ## AUDIT FIXES 2026-08-11 — do these in order, A1 first
 
-> **Cross-repo order lives in the root `plans.md`** ("THE ORDER TO DO THESE IN"). A1, A2, A3 and
-> **A4** are all done — A4 (2026-08-13, with backend B5) closed the citation→highlight loop, which
-> was the last item breaking the core research journey. **No frontend audit items remain.**
+> A1, A2, A3 and **A4** are all done — A4 (2026-08-13, with backend B5) closed the citation→highlight
+> loop, which was the last item breaking the core research journey. **No frontend audit items remain.**
 >
 > **The next work is deliberately not in this repo.** Per the 2026-08-13 sequencing decision, the
-> website stops here and attention moves to the OCR pipeline audit (C-series, then D-series, in the
-> root `plans.md`). W2/W3/W4 in the root's WEB CLOSEOUT stay written up and ready, but they are
-> polish on a surface whose *content contract* is about to change — tables, figures and possibly
-> page furniture are all about to start existing — so doing them now risks doing them twice.
+> website stops here and attention moves to the OCR pipeline audit — the **D-series, now in
+> `backend/plans.md`** (migrated there 2026-09-16 when root `plans.md` was retired; the C-series it
+> followed is complete).
+>
+> **Root's old W2/W3/W4 are gone and were NOT lost — they were already resolved here under different
+> names, which is why they were dropped rather than migrated.** Root W2 (citation-chip tap targets)
+> was answered by **CHUNK 6d**: not a defect, the chip already had a 44×44 `::after` hit area and the
+> "15×12px" figure measured the visible chip — a wrong-layer measurement. Root W3 (honest-miss note on
+> the chat path) was closed by **A2**, re-verified 2026-08-15 against the 9-issue corpus. Root W4
+> (unobserved empty/error/slow states) survives as the open item further down this file. **Beware the
+> label collision:** this file has its *own* later W2/W3/W4 (2026-09-04 onward) that are unrelated work
+> reusing the same names — if an old note cites "W2" without a date, check which file it meant.
 
 > **`src/instrumentation.ts` lives here but is tracked as backend B2** (done 2026-08-12) — that is
 > not a filing mistake. B2 is "connection reuse to Oracle", and the connection is opened by *this*
@@ -1123,6 +1137,100 @@ three before. No horizontal scroll. tsc, eslint and `next build` all clean.
 *(A `2x2px` reading on four plates during verification was pre-decode lazy-loaded images, not a
 defect — re-measured after scrolling each into view: 244–343px wide, all `complete`. Recorded because
 the first measurement looked like a bug and was not.)*
+
+## W4 — scope clarity + plate honesty (PLANNED 2026-09-16, not started)
+
+Shakib's report, verified against the live prod screenshots and the code before writing any of this
+down (MEASURE THE THING ITSELF): scoping a chat to one document has "no clear indication besides the
+top bar" above the composer, the left rail gives no highlight or indication of anything, "Plates" is
+confusing unexplained vocabulary to a first-time reader, and the Plates tab is very likely counting
+ghost/blank crops (screenshotted live: Plate 13 on *The Star of Chile* 3 Dec 1904 p8 is a blank,
+foxed scrap of paper, no image at all). Reference point Shakib asked for: NotebookLM's source-list
+pattern (a persistent left list where each source has a real selected/active state) — studied from
+existing knowledge only, **not** a clone or a redesign. This is explicitly an improve-the-current-
+layout pass, not an overhaul: the three-pane shell, the ScopeBar-above-composer pattern, and the
+reader's `text|scan|plates` tab row all stay as they are.
+
+### W4a — the rail literally cannot show scope (root cause, confirmed in code)
+
+**This is not a styling gap, it's a wiring gap.** `chat-view.tsx` holds `scope: DocumentSummary[]` as
+its own state and passes it to `ScopeBar` and `ScopePicker` — but `DocumentRail` is called as
+`<DocumentRail turns={turns} onNewChat={startNewChat} onOpenPicker={...} />`, with no `scope` prop at
+all. `document-rail.tsx`'s `RecentDocuments` does its own independent `fetch('/api/documents?limit=6')`
+and has no concept of "currently scoped" to compare against — there is no state in that component
+capable of rendering a highlight even if we wanted one. So "the left side doesn't have indication or
+highlight or anything" is architecturally true today, not a CSS oversight: the data the rail would
+need to highlight a row was never threaded through.
+
+Fix: thread `scope` (and `onOpenPicker`'s selection) down into `DocumentRail` → `RecentDocuments` as
+a prop, mark any row whose `document_id` is in the current scope with the same accent-bordered /
+checked treatment `ScopePicker`'s own `DocumentRow` already uses (reuse the pattern, do not invent a
+second one), and add a persistent "Asking within ▸ {name}" chip at the top of the rail itself when
+scoped — so the scope is legible in two places at once (rail + the existing ScopeBar), matching
+NotebookLM's own redundancy (its source list *is* the primary indication of what's in context, not a
+secondary echo of a bar above the input). On Archive/Browse, `DocumentRail` is called with zero props
+today — Browse has no scope concept at all currently (browsing is corpus-wide by design), so nothing
+changes there except that the rail's recent-documents rows gain the same visual language for
+consistency, with no active state to show since Browse never scopes.
+
+### W4b — "Plates" needs a first-encounter explainer, not a rename
+
+W2/W3 already deliberately chose "Plate" as the period-correct term for an engraving and unified it
+everywhere (tab label, page-jump marks, scan grid marks, figure captions) — confirmed still true
+reading `plate.tsx`, `document-figures.tsx`, `document-scans.tsx` live. Renaming it would undo real,
+considered work and reintroduce the inconsistency W3 fixed. The actual problem is that the word is
+introduced with zero context: a first-time reader hits a tab labelled "Plates 20" with no definition
+anywhere on the page. NotebookLM's own pattern for this is a one-line descriptor directly under any
+non-obvious section label, not a tooltip that has to be discovered by hovering (hover has no mobile
+equivalent anyway, and this is a mobile-first product).
+
+Fix: add one small `text-muted-foreground` line directly under the `text|scan|plates` tab row, shown
+only when the Plates tab is active for the first time this session (a `sessionStorage`-backed
+"seen" flag, per-viewer, same category of convenience the design skill already treats as fair game for
+browser storage) — something like "Plates are the engravings, photographs and illustrations printed
+in this issue — the archive's own numbering, not the paper's." Same treatment applies to the
+`DocumentFigures` gallery's own intro line, which already exists (`"N plates were found across this
+issue"`) but could gain the same one-time definition on first visit rather than assuming the word is
+already understood.
+
+### W4c — ghost/blank plates (real gap, confirmed, explicitly NOT fixed this pass)
+
+Confirmed by reading `use-document-figures.ts` and `plate.tsx`: there is **no quality or content
+filtering anywhere in the figure pipeline** — every block the OCR engine tagged as an image-bearing
+type becomes a "Plate" in the gallery and the scan-tile counts, full stop. Screenshotted live: Plate
+13 on Star of Chile 3 Dec 1904 p8 is a faded, foxed blank scrap — no photograph, no engraving,
+nothing printed on it, and it gets a plate number and a spot in the gallery exactly like Plate 14 (a
+real harbor photograph) sitting right next to it. Shakib's call, stated directly: fine to leave as-is
+for now, but track it rather than silently accept it, because "20 plates found" is currently an
+inflated, partly-wrong count that will only get worse across the full 5,000-page corpus.
+
+This is a **backend/pipeline problem, not a frontend one** — the frontend has no way to distinguish a
+blank scrap from a photograph without either (a) a quality signal from the OCR/detection stage (e.g.
+an ink-coverage or contrast heuristic on the crop) or (b) a human/RA review step (Phase 3 territory,
+RAs uploading and curating). Noting it here because it was found during a frontend UX audit, but the
+actual fix belongs in `backend/plans.md` or the OCR pipeline scripts — **cross-reference added there
+in the same session this plan entry was written**, per the Claude⇄Antigravity / cross-repo sync rule.
+Do not silently drop plates client-side as a workaround (that would be exactly the kind of unverified,
+looks-real-but-isn't cleanup the no-placeholders rule forbids — a dropped plate with no server-side
+signal behind it is a guess dressed up as a filter).
+
+### W4d — smaller clarity items surfaced by the same audit, bundled here rather than filed separately
+
+- **Scans-tab "no scan" tiles and blank pages already say so honestly** (`document-scans.tsx`,
+  `pageJumpLabel`) — confirmed still correct, no action needed, listed only so it isn't re-flagged.
+- **`ScopeBar`'s idle-state copy** (`"Asking the whole archive · pick a document"`) is good and stays;
+  the gap was never the bar's own wording, it was the rail having nothing to echo it with. W4a is the
+  actual fix; this line is here so nobody re-diagnoses the bar itself next time.
+- **Consider, not yet decided:** a short first-visit-only explainer band on `ChatEmptyState` naming
+  the two modes ("ask the whole archive, or pin to one issue") the way NotebookLM's empty notebook
+  explains "add a source to get started" — deferred because `chat-empty-state.tsx` wasn't read closely
+  enough this pass to say whether it already does this partially; check before building.
+
+**Order of work when this is picked up:** W4a first (it's the root cause and touches the fewest
+files — `document-rail.tsx` + `chat-view.tsx` only), then W4b (one new small component + a
+`sessionStorage` hook, no data changes), then log W4c's cross-reference in `backend/plans.md` if not
+already there. Verify each slice live at 375px per the mobile-responsive hard rule before moving to
+the next, same as W1–W3. No new dependencies needed for any of this.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
