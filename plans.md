@@ -1138,6 +1138,36 @@ three before. No horizontal scroll. tsc, eslint and `next build` all clean.
 defect — re-measured after scrolling each into view: 244–343px wide, all `complete`. Recorded because
 the first measurement looked like a bug and was not.)*
 
+## ⚠️ DEPLOYMENT — Vercel is NOT auto-deploying. Manual deploy required (found 2026-09-17)
+
+**A git push to `main` does not put frontend changes live.** Verified 2026-09-17 while checking W4
+on production: the newest **Production** deployment was **12 days old**, so six commits — W4
+(`1be9e59`), the W4 plan (`dea7ebc`, `299ec3e`), `5099f61`, the reader tab-row collapse (`3f77c12`)
+and the newspaper-reading pass (`535f181`) — had never been public. They were on GitHub the whole
+time, which is exactly why nobody noticed.
+
+The backend *does* have real CI/CD (push → GHCR → auto-redeploy), which makes this easy to assume
+about the frontend too. It is not true here: Vercel's git integration is not firing, and this repo's
+own workflow only lints and builds.
+
+**Until the hook is reconnected in the Vercel dashboard, deploy by hand after any frontend change:**
+
+```
+npx vercel --prod --yes
+```
+
+**Two traps when verifying afterwards:**
+- **`curl` gets HTTP 403 "Vercel Security Checkpoint" on `frontend-theta-bay-62.vercel.app`; a real
+  browser passes it transparently.** That is bot mitigation (`x-vercel-mitigated: challenge`), not
+  deployment protection, and it is not caused by deploying. **Do not read a curl 403 there as the
+  site being down** — check in a browser first.
+- Direct `frontend-<hash>-….vercel.app` URLs return **302** to auth. Normal, and true of the old
+  deployment too. The alias is the public URL.
+
+Fixing the git→Vercel hook properly is a dashboard task for Shakib, not something doable from here.
+
+---
+
 ## W4 — "where am I and what does this do" (PLANNED 2026-09-16; W4a + W4d/W4e empty-state slice DONE 2026-09-17; W4b, W4e-Browse still open)
 
 > **MERGED 2026-09-16 at Shakib's instruction: the old W5 (surface plain keyword search) is now
