@@ -1138,7 +1138,15 @@ three before. No horizontal scroll. tsc, eslint and `next build` all clean.
 defect — re-measured after scrolling each into view: 244–343px wide, all `complete`. Recorded because
 the first measurement looked like a bug and was not.)*
 
-## W4 — scope clarity + plate honesty (PLANNED 2026-09-16, not started)
+## W4 — "where am I and what does this do" (PLANNED 2026-09-16, not started)
+
+> **MERGED 2026-09-16 at Shakib's instruction: the old W5 (surface plain keyword search) is now
+> W4e.** They were filed separately and were each too small to stand alone, but they are the same
+> problem seen from two sides — *a reader cannot tell what mode they are in or what the site can
+> do.* They also collide in code: old-W5's highest-value slice and W4d's deferred explainer both
+> edit `chat-empty-state.tsx`, so building them apart would mean touching that file twice and
+> risking two competing bits of copy in the same empty state. Do W4e's link and W4d's explainer as
+> **one** edit to that file, or the page ends up nagging the reader twice.
 
 Shakib's report, verified against the live prod screenshots and the code before writing any of this
 down (MEASURE THE THING ITSELF): scoping a chat to one document has "no clear indication besides the
@@ -1225,12 +1233,82 @@ signal behind it is a guess dressed up as a filter).
   the two modes ("ask the whole archive, or pin to one issue") the way NotebookLM's empty notebook
   explains "add a source to get started" — deferred because `chat-empty-state.tsx` wasn't read closely
   enough this pass to say whether it already does this partially; check before building.
+  **Now coupled to W4e:** that slice adds a one-line "looking for a word rather than an answer?"
+  link to the *same component*. Read `chat-empty-state.tsx` once, then decide what that empty state
+  should say as a whole — two modes and the keyword-search escape hatch are one message, not two
+  stacked banners. Building them separately is how an empty state turns into a wall of hints.
 
 **Order of work when this is picked up:** W4a first (it's the root cause and touches the fewest
-files — `document-rail.tsx` + `chat-view.tsx` only), then W4b (one new small component + a
-`sessionStorage` hook, no data changes), then log W4c's cross-reference in `backend/plans.md` if not
-already there. Verify each slice live at 375px per the mobile-responsive hard rule before moving to
+files — `document-rail.tsx` + `chat-view.tsx` only), then **W4e's empty-state link together with
+W4d's explainer as a single edit to `chat-empty-state.tsx`** (cheapest real win on the list, one
+file, and doing them together is what stops the empty state growing two competing hints), then W4b
+(one new small component + a `sessionStorage` hook, no data changes), then W4e's remaining Browse-page
+weight/state work, then log W4c's cross-reference in `backend/plans.md` if not already there. Verify each slice live at 375px per the mobile-responsive hard rule before moving to
 the next, same as W1–W3. No new dependencies needed for any of this.
+
+### W4e — surface plain keyword search properly (raised by Shakib 2026-09-16; was W5)
+
+**The feature is not missing — the affordance is.** Verified by reading the code this session, not
+assumed: corpus-wide keyword search already exists in `archive-browser.tsx`, within-issue search
+exists in `document-search.tsx`, both go straight to `GET /api/v1/search` through
+`src/app/api/search/route.ts`, and **neither touches the LLM at all** (grepped: no chat/stream/gemini
+import anywhere in that path). Timed against the live endpoint the same session: **0.68s and 1.02s**
+for `cholera` and `shipping`. So it is already lightweight, already fast, already non-AI.
+
+The problem is purely one of presence. `site-header.tsx` offers exactly two destinations — "Ask" and
+"Browse" — and `/` is Ask. A reader landing on this site is put in front of a chat composer and has to
+*know* that the second tab contains a plain search box. Shakib's own read of the site was that a
+simple no-AI search did not exist, which is the clearest possible evidence that the current
+presentation hides it. For a corpus of 1800s newspapers, plenty of research sessions start with
+"does the word *nitrate* appear anywhere" and never want a generated sentence at all — that reader
+should not have to find a tab first.
+
+**Explicitly NOT the fix:** adding a second search box to the Ask page, or a global search overlay
+bolted over the chat view. Both recreate the exact "two surfaces that look like two search boxes"
+confusion CHUNK 3 removed when it renamed Archive→Browse and inverted the browse page. Do not undo
+that inversion. The header staying two-verb ("Ask" / "Browse") is correct and stays.
+
+**The move instead: make Browse's search box *look* like the tool it is, and make the Ask page admit
+it exists.** Concretely, in rough order of value:
+
+- **A one-line, low-key link out of the Ask empty state** (`chat-empty-state.tsx`) along the lines of
+  "Looking for a word rather than an answer? Browse the archive." Small, `text-muted-foreground`, no
+  card, no icon — one sentence that tells a first-time reader the other mode exists. This is the
+  single highest-value slice and touches one file. Note W4d already flags `chat-empty-state.tsx` as
+  not-yet-read-closely; read it properly before adding, it may already carry something adjacent.
+- **Give the Browse search field real weight as the page's primary control.** It currently sits above
+  the catalogue as one element among several; it should read as *the* thing that page is for, without
+  becoming a hero banner. Type scale and spacing rhythm do this, not a coloured box and not a
+  gradient — the archive is editorial, and a search field that shouts is exactly the AI-slop tell the
+  design rules forbid. Purple stays an accent on the focus ring only.
+- **Persist and show the query state honestly** — the result count and the term already render; check
+  they survive a back-navigation from a document, because the research loop is *search → read →
+  return to the same result list*, and losing the list on return is the quiet failure that makes
+  people stop using a search box.
+
+**Non-negotiables this must satisfy, same as every other frontend slice here:**
+- **375px first.** The search field, its clear/submit control and every result row are verified at
+  375px before this is considered done, with no horizontal page scroll and ≥44px tap targets on the
+  field, the clear button and each result row. `document-search.tsx` already gets this right — match
+  it rather than inventing a second pattern.
+- **Motion stays sharp and short** — 120–180ms, transform/opacity only, `prefers-reduced-motion`
+  honored. Results appearing should feel immediate; no staggered entrance choreography on a result
+  list, no skeleton shimmer pretending to be slower than the 0.7s the endpoint actually takes. A
+  spinner that outlives the request is a lie about performance.
+- **Classy, restrained, non-generic.** Paper/bone neutrals, ink near-blacks, Playfair for any heading,
+  Inter for the field and rows. No emoji iconography, no decorative filler, nothing that reads as a
+  SaaS template.
+
+**What this does NOT include, deliberately:** no typo tolerance, no search-as-you-type, no new
+search engine. Meilisearch and Elasticsearch were both re-examined this session against the real
+numbers — the entire text index is **2.8 MB** and the chunks table **6.6 MB**, on a box with 11 GB
+shared by Postgres + FastAPI + Nginx. Elasticsearch alone wants ~8 GB with a 4 GB JVM heap, which is
+absurd at this scale. Meilisearch is genuinely light and its typo tolerance is a real answer to the
+OCR-noise gap `backend/plans.md` CHUNK 15 §6 already flags — but it would replace only the *lexical*
+arm, which is the half that already works, while adding a second datastore and a dual-write sync
+problem (the precise reason Qdrant was dropped 2026-09-16). If fuzzy matching becomes the priority,
+`pg_trgm` is **already installed** in this Postgres and is the thing to reach for first. Recorded
+here so this is not re-litigated from scratch next time it comes up.
 
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
