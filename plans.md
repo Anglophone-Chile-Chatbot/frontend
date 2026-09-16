@@ -1138,7 +1138,7 @@ three before. No horizontal scroll. tsc, eslint and `next build` all clean.
 defect — re-measured after scrolling each into view: 244–343px wide, all `complete`. Recorded because
 the first measurement looked like a bug and was not.)*
 
-## W4 — "where am I and what does this do" (PLANNED 2026-09-16, not started)
+## W4 — "where am I and what does this do" (PLANNED 2026-09-16; W4a + W4d/W4e empty-state slice DONE 2026-09-17; W4b, W4e-Browse still open)
 
 > **MERGED 2026-09-16 at Shakib's instruction: the old W5 (surface plain keyword search) is now
 > W4e.** They were filed separately and were each too small to stand alone, but they are the same
@@ -1159,7 +1159,7 @@ existing knowledge only, **not** a clone or a redesign. This is explicitly an im
 layout pass, not an overhaul: the three-pane shell, the ScopeBar-above-composer pattern, and the
 reader's `text|scan|plates` tab row all stay as they are.
 
-### W4a — the rail literally cannot show scope (root cause, confirmed in code)
+### W4a — the rail literally cannot show scope (root cause, confirmed in code) — ✅ DONE 2026-09-17
 
 **This is not a styling gap, it's a wiring gap.** `chat-view.tsx` holds `scope: DocumentSummary[]` as
 its own state and passes it to `ScopeBar` and `ScopePicker` — but `DocumentRail` is called as
@@ -1180,6 +1180,20 @@ secondary echo of a bar above the input). On Archive/Browse, `DocumentRail` is c
 today — Browse has no scope concept at all currently (browsing is corpus-wide by design), so nothing
 changes there except that the rail's recent-documents rows gain the same visual language for
 consistency, with no active state to show since Browse never scopes.
+
+**✅ BUILT 2026-09-17, exactly as diagnosed above.** `scope?: DocumentSummary[]` is threaded
+`ChatView` → `DocumentRail` → `RecentDocuments` (as a `Set` of ids), so all three surfaces read the
+same array and cannot disagree. A scoped row gets the accent left-border + 6% accent tint + a check
+glyph — `ScopePicker`'s existing vocabulary, reused rather than reinvented — plus `aria-current`,
+with the glyph `aria-hidden` so it is not announced twice. The "Asking within" chip sits at the top
+of the rail and renders **only when scoped**; an always-present "whole archive" chip would be chrome
+restating the default, which `ScopeBar` already says in its idle state.
+
+**Verified live at 1440px, not asserted:** selecting *The Star of Chile, 14 Jan 1905* in the picker
+produced the chip, **exactly one** row with `aria-current="true"` (the matching one), a 2px accent
+border and 6% tint on that row only, and transparent/borderless inactive rows. Browse re-checked in
+the same pass: rail present, **0** active rows, no chip, no horizontal scroll — correct, and nothing
+faked. `tsc` clean, eslint clean, production build passes, 0 console errors.
 
 ### W4b — "Plates" needs a first-encounter explainer, not a rename
 
@@ -1229,24 +1243,40 @@ signal behind it is a guess dressed up as a filter).
 - **`ScopeBar`'s idle-state copy** (`"Asking the whole archive · pick a document"`) is good and stays;
   the gap was never the bar's own wording, it was the rail having nothing to echo it with. W4a is the
   actual fix; this line is here so nobody re-diagnoses the bar itself next time.
-- **Consider, not yet decided:** a short first-visit-only explainer band on `ChatEmptyState` naming
-  the two modes ("ask the whole archive, or pin to one issue") the way NotebookLM's empty notebook
-  explains "add a source to get started" — deferred because `chat-empty-state.tsx` wasn't read closely
-  enough this pass to say whether it already does this partially; check before building.
-  **Now coupled to W4e:** that slice adds a one-line "looking for a word rather than an answer?"
-  link to the *same component*. Read `chat-empty-state.tsx` once, then decide what that empty state
-  should say as a whole — two modes and the keyword-search escape hatch are one message, not two
-  stacked banners. Building them separately is how an empty state turns into a wall of hints.
+- ~~**Consider, not yet decided:** a short first-visit-only explainer band on `ChatEmptyState`~~
+  — **✅ RESOLVED 2026-09-17, and reading the file first changed the answer.** The instruction was
+  to read `chat-empty-state.tsx` properly before building, because nobody had. Doing that settled it:
+  **the empty state already introduces the scoped mode.** The "Ask within a single issue" button
+  carries its own descriptor line — *"Pin the assistant to one document so it answers only from
+  those pages."* — which is precisely what the proposed two-mode explainer would have said.
 
-**Order of work when this is picked up:** W4a first (it's the root cause and touches the fewest
-files — `document-rail.tsx` + `chat-view.tsx` only), then **W4e's empty-state link together with
-W4d's explainer as a single edit to `chat-empty-state.tsx`** (cheapest real win on the list, one
-file, and doing them together is what stops the empty state growing two competing hints), then W4b
-(one new small component + a `sessionStorage` hook, no data changes), then W4e's remaining Browse-page
-weight/state work, then log W4c's cross-reference in `backend/plans.md` if not already there. Verify each slice live at 375px per the mobile-responsive hard rule before moving to
-the next, same as W1–W3. No new dependencies needed for any of this.
+  **So the explainer band was NOT built, deliberately.** Adding it would have stated the same thing
+  twice on the first screen a reader ever sees, which is the exact "wall of competing hints" the
+  merge note above warned about — arrived at from the opposite direction than expected. Only the
+  genuinely missing half was added: W4e's keyword-search escape hatch. Recorded rather than quietly
+  dropped, because "we decided not to build the thing the plan listed" is the kind of divergence that
+  otherwise looks like an oversight later.
 
-### W4e — surface plain keyword search properly (raised by Shakib 2026-09-16; was W5)
+**Order of work when this is picked up:** ~~W4a first~~ ✅, then ~~W4e's empty-state link with W4d's
+explainer as a single edit~~ ✅ — **both done 2026-09-17** (W4a in `document-rail.tsx` +
+`chat-view.tsx`; the empty-state edit in `chat-empty-state.tsx`, where the explainer was dropped
+after reading the file, see W4d). Each was verified live at 375px before moving on, per the
+mobile-responsive hard rule, which is what caught the 30px tap target.
+
+**Still open in W4, in order:**
+1. **W4b** — the first-encounter "Plates" explainer (one new small component + a `sessionStorage`
+   seen-flag, no data changes).
+2. **W4e's remaining Browse-page work** — give the Browse search field real weight as that page's
+   primary control (type scale and spacing rhythm, *not* a coloured box or a hero banner), and check
+   that the query + result count survive a back-navigation from a document, since search → read →
+   return is the actual research loop.
+3. **W4c** — cross-reference in `backend/plans.md`. Confirmed already present there (the
+   blank/ghost-plate entry cross-referenced from here, 2026-09-16), so this is a verify-not-write
+   item. W4c itself stays deliberately unfixed: it is a pipeline problem, not a frontend one.
+
+No new dependencies needed for any of this.
+
+### W4e — surface plain keyword search properly (raised by Shakib 2026-09-16; was W5) — first slice ✅ DONE 2026-09-17
 
 **The feature is not missing — the affordance is.** Verified by reading the code this session, not
 assumed: corpus-wide keyword search already exists in `archive-browser.tsx`, within-issue search
@@ -1271,11 +1301,23 @@ that inversion. The header staying two-verb ("Ask" / "Browse") is correct and st
 **The move instead: make Browse's search box *look* like the tool it is, and make the Ask page admit
 it exists.** Concretely, in rough order of value:
 
-- **A one-line, low-key link out of the Ask empty state** (`chat-empty-state.tsx`) along the lines of
-  "Looking for a word rather than an answer? Browse the archive." Small, `text-muted-foreground`, no
-  card, no icon — one sentence that tells a first-time reader the other mode exists. This is the
-  single highest-value slice and touches one file. Note W4d already flags `chat-empty-state.tsx` as
-  not-yet-read-closely; read it properly before adding, it may already carry something adjacent.
+- ✅ **DONE 2026-09-17 — the one-line link out of the Ask empty state.** Shipped as
+  *"Looking for a word rather than an answer? **Search the archive** for it directly."* —
+  `text-muted-foreground`, no card, no icon, a plain `next/link` to `/archive`, sitting under the
+  same rule as the scope affordance so the two ways out of "ask a question" read as one short list.
+  Done as a **single edit** with W4d's explainer decision, as instructed; see W4d above for why the
+  explainer itself was not built.
+
+  **Explicitly not a second search box on the Ask page** — that constraint was honoured; CHUNK 3's
+  inversion is untouched and the header stays two-verb.
+
+  **One thing measured rather than assumed, and it needed a fix:** at 375px the inline link's own box
+  was **30px**, under the 44px tap minimum (the first attempt using `inline-block` + negative margin
+  made it *worse*, not better — 34px → 30px, because `inline-block` collapsed the line-height
+  contribution). Fixed with `inline-flex min-h-[44px] items-center` plus a matching negative block
+  margin so the sentence's line rhythm is preserved. **Re-measured after the fix: 44px exactly, no
+  horizontal page scroll at 375px, link right edge well inside the viewport.** The paragraph box grew
+  39px → 50px, which is the honest cost of a compliant target.
 - **Give the Browse search field real weight as the page's primary control.** It currently sits above
   the catalogue as one element among several; it should read as *the* thing that page is for, without
   becoming a hero banner. Type scale and spacing rhythm do this, not a coloured box and not a

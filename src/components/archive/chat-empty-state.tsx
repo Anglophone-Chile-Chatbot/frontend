@@ -1,6 +1,7 @@
 "use client";
 
 import { Library } from "lucide-react";
+import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,23 @@ import { cn } from "@/lib/utils";
  * ("narrow to a single issue") rather than a promise about what the archive
  * currently contains — nothing has been ingested yet, and the picker itself
  * says so honestly when opened.
+ *
+ * **W4d + W4e, done as one edit 2026-09-17** — deliberately, because both
+ * planned to add copy to this same component and building them apart is how an
+ * empty state turns into a wall of competing hints.
+ *
+ * Reading this file first (which W4d flagged as not yet done) changed the plan:
+ * W4d proposed a first-visit explainer naming *two* modes, but the "Ask within
+ * a single issue" button below **already** introduces the scoped mode, with its
+ * own descriptor line. Adding a banner that re-announced it would have said the
+ * same thing twice on the first screen a reader ever sees. So only the genuinely
+ * missing half was added — the keyword-search escape hatch (W4e).
+ *
+ * That hatch is one muted sentence, not a card: a reader who wants to know
+ * whether a word appears at all should not be made to guess that the second
+ * nav item holds a plain search box, but they also should not be sold it. It
+ * sits with the scope affordance under the same rule, so the two ways out of
+ * "ask a question" read as one short list rather than two stacked banners.
  */
 
 const STARTERS = [
@@ -108,6 +126,40 @@ export function ChatEmptyState({
             </span>
           </span>
         </button>
+
+        {/* W4e: the plain-search escape hatch. Browse already contains a
+            keyword search that never touches the LLM, but the header names it
+            only "Browse", so a reader landing on a chat composer has no way to
+            know it is there — which is precisely how it was missed.
+
+            One muted sentence, no card and no icon, deliberately: this is a
+            signpost for the reader who wants a word rather than an answer, not
+            a second product being pitched. It is a link to /archive and
+            explicitly NOT a second search box on this page — that would
+            recreate the two-search-boxes confusion CHUNK 3 removed when it
+            renamed Archive to Browse and inverted that page. */}
+        <p className="mt-1 px-2 text-[0.75rem] leading-relaxed text-muted-foreground">
+          Looking for a word rather than an answer?{" "}
+          <Link
+            href="/archive"
+            className={cn(
+              "text-foreground/80 underline decoration-[var(--rule-strong)]",
+              "underline-offset-[3px] transition-colors duration-[120ms]",
+              "ease-[var(--ease-crisp)] hover:text-[var(--accent)]",
+              "hover:decoration-[var(--accent)]",
+              // Measured at 375px, not assumed: the inline link's own box is
+              // 30px, under the 44px tap minimum. `inline-flex` + a min-height
+              // gives the anchor a real 44px hit area, and the matching
+              // negative block margin keeps the surrounding sentence's line
+              // rhythm unchanged so the paragraph does not grow a gap.
+              "inline-flex min-h-[44px] items-center align-middle",
+              "-my-[7px]",
+            )}
+          >
+            Search the archive
+          </Link>{" "}
+          for it directly.
+        </p>
       </div>
     </div>
   );

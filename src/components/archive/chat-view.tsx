@@ -67,7 +67,15 @@ export function ChatView() {
           below that it doesn't exist — the mobile shell stays exactly as it
           was, sheet-based scope picker included. This-session-only turn list,
           no persistence: Phase 1 chat is stateless, no exceptions. */}
-      <DocumentRail turns={turns} onNewChat={startNewChat} onOpenPicker={() => setPickerOpen(true)} />
+      <DocumentRail
+        turns={turns}
+        onNewChat={startNewChat}
+        onOpenPicker={() => setPickerOpen(true)}
+        // W4a: the rail owns no scope state of its own — it is passed the same
+        // array ScopeBar and ScopePicker read, so all three can never disagree
+        // about what the next question is scoped to.
+        scope={scope}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col">
         {isEmpty ? (
