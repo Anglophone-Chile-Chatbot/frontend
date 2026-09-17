@@ -1,64 +1,28 @@
-import type { ChatSource } from "./api/types";
-
 /**
- * Parsing of the `[CITE:chunk_id]` markers the LLM embeds in its answer.
+ * Helpers around the `[CITE:chunk_id]` markers the LLM embeds in its answer,
+ * and general answer/date formatting.
  *
- * The backend instructs the model to cite retrieved chunks inline. Rendering
- * splits the answer into text runs and citation runs so each marker can become
- * a tappable chip that opens the source page in the viewer.
+ * Marker parsing itself lives in `remark-cite.ts` (a remark plugin), so
+ * citations compose with real markdown parsing instead of a separate
+ * text-splitting pass. This file keeps the ordinal-assignment helper, since
+ * both the plugin's output and the ordinal numbering need to agree on "1st
+ * distinct chunk seen, in order of first appearance".
  */
 
-/** Matches `[CITE:<uuid-ish token>]`, tolerating whitespace around the id. */
-const CITE_PATTERN = /\[CITE:\s*([^\]\s]+)\s*\]/g;
-
-export type AnswerSegment =
-  | { kind: "text"; text: string }
-  | { kind: "citation"; chunkId: string; source: ChatSource; ordinal: number };
-
 /**
- * Split an answer into renderable segments, resolving markers against sources.
- *
- * A marker whose id is not among the retrieved sources is dropped rather than
- * rendered as a dead chip — the model occasionally invents an id, and a chip
- * that opens nothing is worse than no chip.
- *
- * `ordinal` is the citation's 1-based display number, assigned per distinct
- * chunk in order of first appearance, so repeated citations share a number.
+ * Assign each distinct chunk id a stable 1-based ordinal, in order of first
+ * appearance in `answer`. Repeated citations of the same chunk share a number.
  */
-export function parseAnswer(
-  answer: string,
-  sources: ChatSource[],
-): AnswerSegment[] {
-  const byId = new Map(sources.map((source) => [source.chunk_id, source]));
+export function assignCitationOrdinals(answer: string): Map<string, number> {
   const ordinals = new Map<string, number>();
-  const segments: AnswerSegment[] = [];
-
-  let cursor = 0;
+  const CITE_PATTERN = /\[CITE:\s*([^\]\s]+)\s*\]/g;
   for (const match of answer.matchAll(CITE_PATTERN)) {
-    const index = match.index;
     const chunkId = match[1];
-    const source = byId.get(chunkId);
-
-    // Emit the text preceding this marker.
-    if (index > cursor) {
-      segments.push({ kind: "text", text: answer.slice(cursor, index) });
+    if (!ordinals.has(chunkId)) {
+      ordinals.set(chunkId, ordinals.size + 1);
     }
-    cursor = index + match[0].length;
-
-    if (!source) continue;
-
-    let ordinal = ordinals.get(chunkId);
-    if (ordinal === undefined) {
-      ordinal = ordinals.size + 1;
-      ordinals.set(chunkId, ordinal);
-    }
-    segments.push({ kind: "citation", chunkId, source, ordinal });
   }
-
-  if (cursor < answer.length) {
-    segments.push({ kind: "text", text: answer.slice(cursor) });
-  }
-  return segments;
+  return ordinals;
 }
 
 /**

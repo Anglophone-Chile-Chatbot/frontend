@@ -1382,6 +1382,62 @@ problem (the precise reason Qdrant was dropped 2026-09-16). If fuzzy matching be
 `pg_trgm` is **already installed** in this Postgres and is the thing to reach for first. Recorded
 here so this is not re-litigated from scratch next time it comes up.
 
+## W6 — chat answers rendered raw markdown as literal text (2026-09-17, DONE)
+
+Shakib caught this live in prod (screenshot: `### 1. Diplomatic Relations`, `**bold**` literally
+on screen instead of a heading and bold text) and called it urgent. Root cause, confirmed by
+reading the code before touching anything (MEASURE THE THING ITSELF): `answer-text.tsx` never
+parsed markdown at all. It split the answer into citation markers vs. plain text runs and dumped
+the plain runs into a `whitespace-pre-wrap` div — so every `#`, `*`, `-` the LLM wrote landed on
+screen verbatim. There was no markdown library in `package.json` to begin with; this wasn't a
+regression in a working renderer, it never existed.
+
+**Fix — installed a real markdown renderer instead of extending the hand-rolled splitter:**
+`react-markdown` (v10, React 19-compatible) + `remark-gfm` for GFM tables/strikethrough/etc. The
+tricky part was citations: `[CITE:chunk_id]` markers can land mid-sentence or inside a list item,
+so they can't be a separate pass that runs before/after markdown parsing without breaking on those
+cases. Solved with a small custom remark plugin, `src/lib/remark-cite.ts`, using `unist-util-visit`
+to walk the mdast tree and split any text node containing `[CITE:...]` into a `cite` node — that
+node is a first-class part of the markdown tree, so it composes correctly with bold/lists/headings
+around it. `answer-text.tsx` registers a `cite` component override on `<ReactMarkdown>` that
+resolves the chunk id against `sources` and renders the existing `CitationChip`, unchanged.
+
+`src/lib/citations.ts` lost `parseAnswer`/`AnswerSegment` (the old splitter, now dead — nothing
+else referenced them) and kept `trimPartialMarker` (still needed: hides an unclosed `[CITE:8f2`
+tail while a token is mid-arrival) plus a new `assignCitationOrdinals` helper, since the ordinal
+numbering ("citation 1, 2, 3...", shared across repeats of the same chunk) still needs computing
+once per answer regardless of how the text gets split.
+
+**Editorial styling, not default browser prose:** added `.prose-answer` to `globals.css` —
+headings in Inter/`--font-sans` (contrast against the Lora/`--font-serif` body, matching the
+existing `.font-heading`-vs-`.font-text-serif` split elsewhere in the app), tight spacing rhythm
+(0.85em paragraph margins, not Tailwind Typography's default looseness), accent-subtle blockquote
+rule and inline-code background using the existing `--accent-subtle` token, no decorative filler.
+GFM tables get borders from `--border`. This is deliberately not `@tailwindcss/typography` — that
+plugin's defaults are the generic-SaaS look this project's design rule explicitly bans, and hand
+writing ~15 rules against tokens already in the palette was less work than fighting a prose plugin's
+overrides.
+
+**Verified live, not just type-checked** (`npx tsc --noEmit` and `npm run build` both clean, but
+per the testing rule that's not enough for a UI fix): ran the actual dev server on 3417 against the
+real Oracle backend, asked "What did the papers report about the nitrate trade?" through the real
+UI. Confirmed via Playwright accessibility snapshot — not just a screenshot — that the response
+contains a real `heading [level=3]`, real `strong`/`emphasis` nodes, and a resolved citation chip
+button, none of it literal `#`/`*` text. Also caught a real (separate, pre-existing) bug live during
+this test: an upstream stream cutoff left a dangling unclosed `[CITE:a5e33292-ac9a-478e-8b2d-2658b`
+at the very end of one answer once `status` had already flipped to `complete` — `trimPartialMarker`
+was previously only applied while `isStreaming`, so a hung-up stream let the raw fragment leak into
+the rendered output. Fixed in the same pass: `answer-text.tsx` now trims the dangling marker
+unconditionally, streaming or not.
+
+**What this does NOT fix, and isn't meant to:** citation coverage itself (whether the model bothers
+to emit `[CITE:]` markers at all) is a separate, already-tracked, already-measured issue — see
+`CLAUDE.md`'s "LLM choice is COST-FIRST" section, the 2026-08-31 Valparaiso measurement. One of the
+two live test answers in this session had zero citation markers in the raw text at all; that's
+model behavior, not a rendering defect, and is explicitly out of scope here. The upstream
+stream-cutoff itself (why the SSE connection hung up mid-token) is also not investigated — only the
+rendering-side symptom (a leaked raw fragment) was fixed.
+
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
 - [ ] Cross-document pattern discovery UI (confirmed 2026-08-08) — surfaces connections/patterns
