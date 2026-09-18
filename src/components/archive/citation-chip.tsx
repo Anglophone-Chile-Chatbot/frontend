@@ -39,7 +39,10 @@ export function CitationChip({
       aria-label={`Citation ${ordinal}: ${label}`}
       title={label}
       className={cn(
-        "relative mx-[0.15em] inline-flex min-w-[1.4em] items-center justify-center",
+        // Left margin only: the chip is a footnote mark, so it sits tight
+        // against the following punctuation rather than floating between the
+        // word and the period.
+        "relative ml-[0.15em] inline-flex min-w-[1.4em] items-center justify-center",
         "rounded-[0.25rem] px-[0.35em] py-[0.05em] align-baseline",
         "font-sans text-[0.72em] font-medium leading-none numeric",
         "transition-[background-color,color,box-shadow] duration-[120ms]",

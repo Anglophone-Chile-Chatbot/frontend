@@ -6,22 +6,20 @@
 
 ---
 
-## ⚠️ DEPLOYING THIS REPO — pushing to `main` publishes NOTHING (found 2026-08-31)
+## ✅ DEPLOYING THIS REPO — pushing to `main` DOES deploy. (Corrected 2026-09-18; the 2026-08-31 and 2026-09-17 claims to the contrary were both wrong)
 
-**Vercel is not connected to this GitHub repo.** Unlike the backend (which has real push-to-deploy
-CI/CD), a merge here reaches GitHub and stops there. This was found by shipping the CHUNK 11 fixes
-and then checking: **the live production deploy was 20 days old** while the code sat on GitHub
-looking shipped. Git history reading as "done" is exactly what makes this bite.
+**Vercel is connected to this repo and auto-deploys `main`.** Dashboard shows
+*Anglophone-Chile-Chatbot/frontend, Connected Jul 15*, and every recent commit carries a
+`Vercel` / `success` GitHub commit status — which only exists when the git integration is live.
+Full evidence, method and the retraction is in the **DEPLOYMENT** section further down this file;
+read that before ever re-raising this.
 
-**So: after any frontend change, deploy it yourself —**
-
-```
-cd frontend && npx vercel --prod --yes      # ~30s
-```
+`npx vercel --prod --yes` still works and is harmless, but it is **not required**. Do not tell
+Shakib the site needs a manual deploy.
 
 Prod alias: `https://frontend-theta-bay-62.vercel.app`. **Verify on that URL, not localhost**, before
-calling frontend work shipped. Tracked as **I3** in `infra/plans.md`; the real
-fix (connecting the repo in the Vercel dashboard) needs Shakib and is not something a session can do.
+calling frontend work shipped — and note a `curl` 403 there is bot mitigation, not a broken deploy
+(see the traps in the DEPLOYMENT section).
 
 ---
 
@@ -1138,33 +1136,62 @@ three before. No horizontal scroll. tsc, eslint and `next build` all clean.
 defect — re-measured after scrolling each into view: 244–343px wide, all `complete`. Recorded because
 the first measurement looked like a bug and was not.)*
 
-## ⚠️ DEPLOYMENT — Vercel is NOT auto-deploying. Manual deploy required (found 2026-09-17)
+## ✅ DEPLOYMENT — Vercel DOES auto-deploy on push to `main`. The 2026-09-17 "manual deploy required" claim was WRONG and is retracted (corrected 2026-09-18)
 
-**A git push to `main` does not put frontend changes live.** Verified 2026-09-17 while checking W4
-on production: the newest **Production** deployment was **12 days old**, so six commits — W4
-(`1be9e59`), the W4 plan (`dea7ebc`, `299ec3e`), `5099f61`, the reader tab-row collapse (`3f77c12`)
-and the newspaper-reading pass (`535f181`) — had never been public. They were on GitHub the whole
-time, which is exactly why nobody noticed.
+**Pushing to `main` deploys the frontend automatically. It always has.** Do not add a manual
+`vercel --prod` step, and do not tell Shakib the site needs a hand-deploy — he connected the repo
+(Vercel dashboard → Project → Settings → Git shows *Anglophone-Chile-Chatbot/frontend, Connected
+Jul 15*) and was made to re-verify it repeatedly because of this entry.
 
-The backend *does* have real CI/CD (push → GHCR → auto-redeploy), which makes this easy to assume
-about the frontend too. It is not true here: Vercel's git integration is not firing, and this repo's
-own workflow only lints and builds.
-
-**Until the hook is reconnected in the Vercel dashboard, deploy by hand after any frontend change:**
+**The evidence that settles it, re-derived 2026-09-18 with commands, not inference:**
 
 ```
-npx vercel --prod --yes
+gh api repos/Anglophone-Chile-Chatbot/frontend/commits/<sha>/status
 ```
 
-**Two traps when verifying afterwards:**
+Every recent commit carries a **`Vercel` / `success`** commit status, which only exists when the git
+integration is live and deploying:
+
+| commit | Vercel status posted |
+|---|---|
+| `dd005f7` | 2026-09-18T10:27:02Z |
+| `a223698` | 2026-09-17T17:35:42Z |
+| `2a02375` | 2026-09-16T22:08:17Z |
+| `1be9e59` | 2026-09-16T21:44:27Z |
+| `dea7ebc` | 2026-09-15T23:05:31Z |
+| `5099f61` | 2026-09-04T20:43:22Z |
+
+`git reflog show origin/main --date=iso` cross-checks it: `1be9e59` was **pushed 09-17 03:44:02**
+(+06), and a production deployment was **created 09-17 04:04:47** — with nothing manual run in
+between. `.github/workflows/ci.yml` only lints/typechecks/builds and has no deploy step, so that
+deployment could only have come from Vercel's git hook.
+
+**Why the wrong entry happened, because the failure mode matters more than the fact.** The
+2026-09-17 session saw "newest Production deployment is 12 days old, six commits aren't live" and
+concluded *the integration is broken*. That was **an inference presented as a measurement** — the
+exact trap `CLAUDE.md`'s "A MEASUREMENT IS NOT A STORY" rule describes. The staleness was real; the
+cause was not checked. It then wrote the conclusion into five files, and every later session
+(including 2026-09-18's) read it, believed it, and made Shakib re-prove his own dashboard — the same
+stale-blocker loop `BACKEND_API_URL` caused on 2026-08-12, which the docs rule exists to prevent.
+Worse, the wrong entry was *load-bearing*: it closed the question, so nobody ran the one `gh api`
+command that would have refuted it in ten seconds.
+
+**Rules going forward:**
+1. **Never claim a deploy path is broken without checking the commit status / deployment source.**
+   "Prod looks stale" is a symptom with several causes (propagation, a failed build, a cached
+   browser, looking at the wrong alias) — the integration being off is only one of them.
+2. `npx vercel --prod --yes` still *works* and is harmless, but it is **not required** and must not
+   be described as required. Prefer letting the push deploy.
+3. **The two verification traps below are real and still apply** — they were the only correct part
+   of the retracted entry, and misreading them is probably what produced the false conclusion.
+
+**Two traps when verifying a deployment:**
 - **`curl` gets HTTP 403 "Vercel Security Checkpoint" on `frontend-theta-bay-62.vercel.app`; a real
   browser passes it transparently.** That is bot mitigation (`x-vercel-mitigated: challenge`), not
   deployment protection, and it is not caused by deploying. **Do not read a curl 403 there as the
   site being down** — check in a browser first.
-- Direct `frontend-<hash>-….vercel.app` URLs return **302** to auth. Normal, and true of the old
-  deployment too. The alias is the public URL.
-
-Fixing the git→Vercel hook properly is a dashboard task for Shakib, not something doable from here.
+- Direct `frontend-<hash>-….vercel.app` URLs return **302** to auth. Normal. The alias is the
+  public URL.
 
 ---
 
@@ -1489,6 +1516,15 @@ contain one. `document.querySelector('.prose-answer').innerHTML` confirmed: cita
 correctly inline with no wrapping element, the GFM table produces a real `<table><thead>...` (not
 literal pipe characters), and a citation inside a list item (`<li>Item one [CITE:...]</li>`) resolves
 correctly too. All three had been unverified assumptions in the original pass.
+
+**Spacing, fixed in the same pass:** the model writes `...8s. 3d. [CITE:x].` — with a space before
+the marker — which rendered as a visible gap between the word and the chip, and made the trailing
+period look detached. `remarkCite` now strips trailing spaces/tabs (deliberately **not** newlines,
+which would collapse markdown structure) from the text run immediately before a citation, and
+`CitationChip` uses `ml-` instead of `mx-` so it hugs the following punctuation. A citation is a
+footnote mark; it should sit against the word it follows. A hairline of space remains after the
+chip because of its `px-[0.35em]` padding and `min-w-[1.4em]` — that padding is what keeps the 44px
+tap target legible, so it stays.
 
 **Lesson for next time a custom remark node type is added:** a custom mdast node needs its own
 `mdast-util-to-hast` handler up front, registered via `remarkRehypeOptions.handlers` — it cannot be

@@ -44,7 +44,11 @@ export const remarkCite: Plugin<[], Root> = () => (tree) => {
     for (const match of node.value.matchAll(CITE_PATTERN)) {
       const start = match.index;
       if (start > cursor) {
-        children.push({ type: "text", value: node.value.slice(cursor, start) });
+        // The model writes "...8s. 3d. [CITE:x]." — that space would render a
+        // visible gap before the chip, and another before the period after it.
+        // A citation is a footnote mark: it hugs the word it follows.
+        const preceding = node.value.slice(cursor, start).replace(/[ \t]+$/, "");
+        if (preceding) children.push({ type: "text", value: preceding });
       }
       children.push({ type: "cite", chunkId: match[1] });
       cursor = start + match[0].length;
