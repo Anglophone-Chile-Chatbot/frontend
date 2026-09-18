@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
-import ReactMarkdown, { type Components } from "react-markdown";
+import ReactMarkdown, {
+  type Components,
+  type Options as ReactMarkdownOptions,
+} from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { ChatSource } from "@/lib/api/types";
 import { assignCitationOrdinals, trimPartialMarker } from "@/lib/citations";
-import type { CiteNode } from "@/lib/remark-cite";
-import { remarkCite } from "@/lib/remark-cite";
+import { citeHastHandlers, remarkCite } from "@/lib/remark-cite";
 
 import { CitationChip } from "./citation-chip";
 
@@ -46,27 +48,31 @@ export function AnswerText({
     [sources],
   );
 
-  const components: Components = useMemo(
-    () => ({
-      // react-markdown only invokes registered component overrides for
-      // element types it knows; `cite` is our own mdast node type, matched
-      // by name here rather than by any built-in tag.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      cite: (props: any) => {
-        const node = props.node as CiteNode;
-        const source = byId.get(node.chunkId);
-        if (!source) return null;
-        const ordinal = ordinals.get(node.chunkId) ?? 0;
-        return (
-          <CitationChip
-            source={source}
-            ordinal={ordinal}
-            isActive={activeChunkId === node.chunkId}
-            onOpen={onOpenSource}
-          />
-        );
-      },
-    }),
+  // `remark-cite`'s mdast `cite` node is converted to a `cite-chunk` hast
+  // tag by `citeHastHandlers` (see remark-cite.ts) before it reaches
+  // react-markdown's component-override matching, which keys off hast tag
+  // names, not mdast node types. Both `Components` and `remarkRehypeOptions`
+  // are typed against closed, pre-built unions of markdown's built-in node
+  // types (react-markdown's own .d.ts, and mdast-util-to-hast's Handlers) —
+  // hence the casts, verified correct against the actual hast tree produced
+  // (see commit message / plans.md).
+  const components = useMemo(
+    () =>
+      ({
+        "cite-chunk": (props: { chunkId: string }) => {
+          const source = byId.get(props.chunkId);
+          if (!source) return null;
+          const ordinal = ordinals.get(props.chunkId) ?? 0;
+          return (
+            <CitationChip
+              source={source}
+              ordinal={ordinal}
+              isActive={activeChunkId === props.chunkId}
+              onOpen={onOpenSource}
+            />
+          );
+        },
+      }) as unknown as Components,
     [byId, ordinals, activeChunkId, onOpenSource],
   );
 
@@ -74,6 +80,9 @@ export function AnswerText({
     <div className="font-text-serif measure prose-answer text-[0.9375rem] leading-[1.65] text-foreground">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkCite]}
+        remarkRehypeOptions={
+          { handlers: citeHastHandlers } as ReactMarkdownOptions["remarkRehypeOptions"]
+        }
         components={components}
       >
         {text}

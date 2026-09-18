@@ -1,6 +1,7 @@
 import type { Root, Text } from "mdast";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
+import type { State } from "mdast-util-to-hast";
 
 /**
  * Remark plugin: turns `[CITE:chunk_id]` markers inside text nodes into a
@@ -10,6 +11,14 @@ import { visit } from "unist-util-visit";
  *
  * The backend instructs the LLM to emit these markers inline; resolving the
  * id against retrieved sources happens later, in the React renderer.
+ *
+ * `mdast-util-to-hast`'s default handler for a node type it doesn't
+ * recognize wraps it in a block-level `<div>` (its only fallback for a node
+ * with no `value` field) — which breaks inline flow and renders as an empty
+ * `<div></div>` mid-sentence, forcing a line break around it. `citeHastHandlers`
+ * must be passed to react-markdown's `remarkRehypeOptions.handlers` so the
+ * `cite` node becomes a real inline hast element (`<cite-chunk>`) instead of
+ * hitting that fallback.
  */
 
 const CITE_PATTERN = /\[CITE:\s*([^\]\s]+)\s*\]/g;
@@ -47,4 +56,22 @@ export const remarkCite: Plugin<[], Root> = () => (tree) => {
     parent.children.splice(index, 1, ...(children as never[]));
     return index + children.length;
   });
+};
+
+/**
+ * mdast-to-hast handler for the `cite` node, keyed by node type in the
+ * `handlers` map react-markdown passes through to `remark-rehype`. Emits a
+ * real inline hast element (a made-up but valid custom tag name) carrying
+ * `chunkId` as a property, so `hast-util-to-jsx-runtime` can match it to a
+ * React component override by tag name in `answer-text.tsx`.
+ */
+export const citeHastHandlers = {
+  cite(_state: State, node: CiteNode) {
+    return {
+      type: "element" as const,
+      tagName: "cite-chunk",
+      properties: { chunkId: node.chunkId },
+      children: [],
+    };
+  },
 };

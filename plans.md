@@ -1438,6 +1438,66 @@ model behavior, not a rendering defect, and is explicitly out of scope here. The
 stream-cutoff itself (why the SSE connection hung up mid-token) is also not investigated — only the
 rendering-side symptom (a leaked raw fragment) was fixed.
 
+### W6 correction (2026-09-18) — the "DONE" verification above missed a real defect: stray `<div>`s inline
+
+Shakib caught this the next day from a live production screenshot: sentences ending with an
+isolated `.` alone on its own line, e.g. "...at 49,500 tons\n." — a forced line break appearing
+mid-sentence, right around where a citation number would sit. The original W6 verification checked
+that headings/bold/citations *appeared correctly* via an accessibility snapshot, but never inspected
+the actual rendered HTML — so it missed that every citation chip was sitting next to an invalid,
+invisible block element.
+
+**Root cause, confirmed by reading the actual DOM (`innerHTML`), not the accessibility tree:**
+`mdast-util-to-hast` (the step `react-markdown` uses internally to convert the markdown tree to an
+HTML tree, before `remark-cite`'s `cite` node ever reaches a React component) has a
+`defaultUnknownHandler` for any mdast node type it doesn't recognize. That handler's fallback for a
+node with no `value` field — which is exactly what `{ type: "cite", chunkId }` is — wraps it in a
+block-level `<div>`. So every single citation marker was silently becoming an empty `<div></div>`
+sitting *inline*, mid-paragraph, mid-list-item. A block element inside inline text forces the
+browser to break the line around it — that's the literal cause of the "period on its own line"
+symptom. It also meant the `components.cite` override in `answer-text.tsx` was **dead code the
+whole time**: react-markdown's component matching keys off the final hast *tag name*, and the tag
+name here was `"div"`, never `"cite"` — so the override never fired, for any citation, ever. Every
+citation chip visible in the W6 screenshots was rendering through a different mechanism (the chip
+still worked because `<CitationChip>` itself renders fine once mounted — but it was being invoked via
+whatever fallback path applies to bare `<div>`s in `components`, not the intended `cite` matching).
+
+**Fix:** give `mdast-util-to-hast` an explicit handler for the `cite` node type instead of relying on
+its unknown-node fallback. Added `citeHastHandlers` to `src/lib/remark-cite.ts` — converts the `cite`
+mdast node into a real *inline* hast element, `<cite-chunk chunkId="...">`, with no children. Passed
+into `<ReactMarkdown remarkRehypeOptions={{ handlers: citeHastHandlers }}>` in `answer-text.tsx`, and
+the component override renamed from `cite` to `"cite-chunk"` to match the tag name that's now
+actually produced. Verified the mdast→hast handoff directly with a throwaway Node script (parsed
+"hello X world" through the same `unified()` pipeline, dumped the hast tree as JSON) before trusting
+it in the browser — confirmed `cite-chunk` lands as a sibling inline node, not a wrapping block.
+
+**TypeScript wrinkle:** `react-markdown`'s `Components` type and `mdast-util-to-hast`'s `Handlers`
+type are both closed unions of markdown's built-in node/tag names, built from each package's own
+bundled types — the `declare module "mdast" { interface StaticPhrasingContentMap { cite: ... } }`
+augmentation (needed anyway, for the remark plugin itself) does not propagate through to widen
+those two specific closed unions. Rather than fight cross-package generic resolution further, used
+targeted `as unknown as Components` / `as ReactMarkdownOptions["remarkRehypeOptions"]` casts at the
+two call sites — justified because the actual hast output was verified correct by the Node script
+above, not asserted on faith.
+
+**Verified properly this time — by inspecting rendered HTML, not just the accessibility tree:**
+built a temporary test route (`src/app/debugmarkdowntest/page.tsx`, deleted after — never committed)
+rendering `<AnswerText>` directly with hardcoded markdown covering the exact failure case (a citation
+immediately before a sentence-ending period) **plus a real GFM table**, since tables specifically
+had never been checked — the two live prod test answers in the original W6 pass happened not to
+contain one. `document.querySelector('.prose-answer').innerHTML` confirmed: citation buttons sit
+correctly inline with no wrapping element, the GFM table produces a real `<table><thead>...` (not
+literal pipe characters), and a citation inside a list item (`<li>Item one [CITE:...]</li>`) resolves
+correctly too. All three had been unverified assumptions in the original pass.
+
+**Lesson for next time a custom remark node type is added:** a custom mdast node needs its own
+`mdast-util-to-hast` handler up front, registered via `remarkRehypeOptions.handlers` — it cannot be
+left to fall through to the default unknown-node handler and "matched" later by a same-named
+component override, because the override matches on the *hast tag name after conversion*, not the
+mdast type before it. And "the accessibility snapshot looks right" is not sufficient verification
+for markdown rendering — invalid nesting (block-in-inline) is invisible to the a11y tree but visibly
+wrong in the actual rendered page.
+
 ## Phase 2+
 - [ ] Semantic search UI, "similar passages" panel in viewer
 - [ ] Cross-document pattern discovery UI (confirmed 2026-08-08) — surfaces connections/patterns
