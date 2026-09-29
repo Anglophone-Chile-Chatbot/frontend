@@ -4,7 +4,7 @@ import { AlertCircle, Library, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { ChatSource } from "@/lib/api/types";
-import { formatIssueDateShort, assignCitationOrdinals } from "@/lib/citations";
+import { classifySourceUse, formatIssueDateShort } from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
 import { cn } from "@/lib/utils";
 
@@ -228,15 +228,32 @@ function SourceList({
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
-  const ordinals = assignCitationOrdinals(answer);
+  const { use, cited } = classifySourceUse(
+    sources.map((s) => s.chunk_id),
+    answer,
+    isComplete,
+  );
   return (
     <div className="mt-1">
-      <p className="eyebrow mb-2">Sources</p>
+      <p className="eyebrow mb-2">{use === "none" ? "Closest matches" : "Sources"}</p>
+      {use === "none" && (
+        <p className="measure mb-2 text-[0.8125rem] leading-relaxed text-muted-foreground">
+          None of these answers the question. They share search words with it and are kept in
+          case they help.
+        </p>
+      )}
+      {use === "some" && (
+        <p className="measure mb-2 text-[0.8125rem] leading-relaxed text-muted-foreground">
+          Greyed-out passages matched the search but were not used in the answer.
+        </p>
+      )}
       <ul className="flex flex-col">
         {sources.map((source, index) => {
           const date = formatIssueDateShort(source.issue_date);
           const isActive = activeChunkId === source.chunk_id;
-          const isUncited = isComplete && !ordinals.has(source.chunk_id);
+          // Greyed only in a mix; when nothing was cited the heading and note
+          // already say so, and greying every row would only add noise.
+          const isUncited = use === "some" && !cited.has(source.chunk_id);
           return (
             <li key={source.chunk_id}>
               <button
@@ -261,9 +278,9 @@ function SourceList({
                   >
                     {source.publication ?? "Unidentified publication"}
                   </span>
-                  <span className="numeric mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0 text-[0.75rem] text-muted-foreground">
-                    <span>{date ? `${date} · ` : ""}Page {source.page_number}</span>
-                    {isUncited && <span>(not cited)</span>}
+                  <span className="numeric mt-0.5 block text-[0.75rem] text-muted-foreground">
+                    {date ? `${date} · ` : ""}Page {source.page_number}
+                    {isUncited && <span className="sr-only"> (not used in the answer)</span>}
                   </span>
                 </span>
               </button>

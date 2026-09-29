@@ -36,8 +36,10 @@ function escapeRegExp(text: string): string {
 /**
  * Returns non-overlapping ranges of `text` matching any term, in order.
  *
- * Each term matches as a whole phrase (flexible whitespace), and each word of
- * 3+ characters in a multi-word term also matches alone. Longer patterns win
+ * Each term matches as a whole phrase only (flexible whitespace), never word
+ * by word: retrieval scores a multi-word term as a phrase (`phraseto_tsquery`,
+ * 'merchant' <-> 'hous'), so a lone "house" never contributed to the match
+ * and shading it would claim otherwise. Longer patterns win
  * at the same position. Terms are regex-escaped: rewrite output such as
  * "St." or "H.M.S." must be literal, never a pattern.
  */
@@ -48,9 +50,6 @@ export function findTermRanges(text: string, terms: readonly string[]): TermRang
     if (folded.length === 0) continue;
     const words = folded.split(/\s+/).filter(Boolean);
     patterns.add(words.map(escapeRegExp).join("\\s+"));
-    if (words.length > 1) {
-      for (const word of words) if (word.length >= 3) patterns.add(escapeRegExp(word));
-    }
   }
   if (patterns.size === 0) return [];
 

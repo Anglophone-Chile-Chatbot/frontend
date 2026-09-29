@@ -76,3 +76,26 @@ export function formatIssueDateShort(iso: string | null): string | null {
     timeZone: "UTC",
   }).format(parsed);
 }
+
+/**
+ * How a finished answer used its sources, for labelling the source list.
+ *
+ * - `pending`: still streaming (or failed), so nothing is known yet.
+ * - `none`: the answer cited none of them. These were the closest keyword
+ *   matches, and the answer found nothing in them that answers the question.
+ * - `some`: a mix. The uncited ones matched the search but weren't used.
+ * - `all`: every source was cited.
+ */
+export type SourceUse = "pending" | "none" | "some" | "all";
+
+export function classifySourceUse(
+  sourceIds: readonly string[],
+  answer: string,
+  isComplete: boolean,
+): { use: SourceUse; cited: ReadonlySet<string> } {
+  if (!isComplete) return { use: "pending", cited: new Set() };
+  const ordinals = assignCitationOrdinals(answer);
+  const cited = new Set(sourceIds.filter((id) => ordinals.has(id)));
+  const use = cited.size === 0 ? "none" : cited.size === sourceIds.length ? "all" : "some";
+  return { use, cited };
+}
