@@ -34,6 +34,7 @@ export function SourceViewer({
   source,
   passage,
   query,
+  terms,
   onOpenChange,
 }: {
   /** The page to show; `null` closes the viewer. */
@@ -42,6 +43,8 @@ export function SourceViewer({
   passage?: string | null;
   /** The reader's search term, carried into the issue by `ReadIssueLink`. */
   query?: string;
+  /** Active search terms to highlight within the passage. */
+  terms?: string[];
   onOpenChange: (open: boolean) => void;
 }) {
   const { page, status, tab, setTab } = useSourcePage(source);
@@ -101,6 +104,7 @@ export function SourceViewer({
           tab={tab}
           onTabChange={setTab}
           passage={passage ?? null}
+          terms={terms}
         />
       </SheetContent>
     </Sheet>

@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertCircle, Library } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { AlertCircle, Library, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ChatSource } from "@/lib/api/types";
-import { formatIssueDateShort } from "@/lib/citations";
+import { formatIssueDateShort, assignCitationOrdinals } from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +24,7 @@ export function Transcript({
 }: {
   turns: ChatTurn[];
   activeChunkId: string | null;
-  onOpenSource: (source: ChatSource) => void;
+  onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -82,7 +82,7 @@ function TurnBlock({
 }: {
   turn: ChatTurn;
   activeChunkId: string | null;
-  onOpenSource: (source: ChatSource) => void;
+  onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
   return (
     <div id={`turn-${turn.id}`} className="animate-rise flex scroll-mt-4 flex-col gap-3">
@@ -124,7 +124,7 @@ function TurnBlock({
               sources={turn.sources}
               isStreaming={turn.status === "streaming"}
               activeChunkId={activeChunkId}
-              onOpenSource={onOpenSource}
+              onOpenSource={(source) => onOpenSource(source, turn.terms)}
             />
           </div>
         )
@@ -137,6 +137,18 @@ function TurnBlock({
       {turn.sources.length > 0 && turn.status !== "error" && (
         <SourceList
           sources={turn.sources}
+          answer={turn.answer}
+          isComplete={turn.status === "complete"}
+          terms={turn.terms}
+          activeChunkId={activeChunkId}
+          onOpenSource={onOpenSource}
+        />
+      )}
+
+      {turn.related.length > 0 && turn.status !== "error" && (
+        <RelatedList
+          related={turn.related}
+          terms={turn.terms}
           activeChunkId={activeChunkId}
           onOpenSource={onOpenSource}
         />
@@ -203,13 +215,20 @@ function NoMatchNote({ scoped }: { scoped: boolean }) {
 /** The pages an answer drew on, listed under it for scanning. */
 function SourceList({
   sources,
+  answer,
+  isComplete,
+  terms,
   activeChunkId,
   onOpenSource,
 }: {
   sources: ChatSource[];
+  answer: string;
+  isComplete: boolean;
+  terms: string[];
   activeChunkId: string | null;
-  onOpenSource: (source: ChatSource) => void;
+  onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
+  const ordinals = assignCitationOrdinals(answer);
   return (
     <div className="mt-1">
       <p className="eyebrow mb-2">Sources</p>
@@ -217,11 +236,12 @@ function SourceList({
         {sources.map((source, index) => {
           const date = formatIssueDateShort(source.issue_date);
           const isActive = activeChunkId === source.chunk_id;
+          const isUncited = isComplete && !ordinals.has(source.chunk_id);
           return (
             <li key={source.chunk_id}>
               <button
                 type="button"
-                onClick={() => onOpenSource(source)}
+                onClick={() => onOpenSource(source, terms)}
                 className={cn(
                   "flex min-h-[44px] w-full items-baseline gap-2.5 rounded-md",
                   "px-2 py-2 text-left transition-colors duration-[120ms]",
@@ -233,11 +253,17 @@ function SourceList({
                   {index + 1}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-heading text-[0.875rem] text-foreground">
+                  <span 
+                    className={cn(
+                      "block truncate font-heading text-[0.875rem]",
+                      isUncited ? "text-muted-foreground" : "text-foreground"
+                    )}
+                  >
                     {source.publication ?? "Unidentified publication"}
                   </span>
-                  <span className="numeric mt-0.5 block text-[0.75rem] text-muted-foreground">
-                    {date ? `${date} · ` : ""}Page {source.page_number}
+                  <span className="numeric mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0 text-[0.75rem] text-muted-foreground">
+                    <span>{date ? `${date} · ` : ""}Page {source.page_number}</span>
+                    {isUncited && <span>(not cited)</span>}
                   </span>
                 </span>
               </button>
@@ -245,6 +271,64 @@ function SourceList({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+function RelatedList({
+  related,
+  terms,
+  activeChunkId,
+  onOpenSource,
+}: {
+  related: ChatSource[];
+  terms: string[];
+  activeChunkId: string | null;
+  onOpenSource: (source: ChatSource, terms: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex min-h-[44px] items-center gap-1.5 rounded-md px-2 -ml-2 text-[0.8125rem] text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        {open ? "Hide further matches" : `${related.length} further ${related.length === 1 ? "match" : "matches"}`}
+      </button>
+      {open && (
+        <ul className="mt-2 flex flex-col gap-0.5">
+          {related.map((source) => {
+            const date = formatIssueDateShort(source.issue_date);
+            const isActive = activeChunkId === source.chunk_id;
+            return (
+              <li key={source.chunk_id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenSource(source, terms)}
+                  className={cn(
+                    "flex min-h-[44px] w-full items-baseline gap-2.5 rounded-md",
+                    "px-2 py-2 text-left transition-colors duration-[120ms]",
+                    "ease-[var(--ease-crisp)] hover:bg-secondary",
+                    isActive && "bg-[var(--accent-subtle)]",
+                  )}
+                >
+                  <span className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
+                    <span className="block truncate font-heading text-[0.875rem] text-muted-foreground">
+                      {source.publication ?? "Unidentified publication"}
+                    </span>
+                    <span className="numeric text-[0.75rem] text-muted-foreground">
+                      {date ? `${date} · ` : ""}Page {source.page_number}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { ZoomableImage } from "@/components/archive/zoomable-image";
 import type { PageDetail, PageFigure } from "@/lib/api/types";
 import { parsePageBlocks, splicePageFigures, type PageBlock } from "@/lib/page-blocks";
 import { findPassage, type MatchKind } from "@/lib/passage-match";
+import { findTermRanges } from "@/lib/term-highlight";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,6 +31,7 @@ export function SourceViewerBody({
   tab,
   onTabChange,
   passage,
+  terms,
   showTabs = true,
 }: {
   status: "idle" | "loading" | "error";
@@ -37,6 +39,7 @@ export function SourceViewerBody({
   tab: "text" | "image";
   onTabChange: (tab: "text" | "image") => void;
   passage: string | null;
+  terms?: string[];
   /**
    * Whether to render the Text/Scan switch.
    *
@@ -86,6 +89,7 @@ export function SourceViewerBody({
                 key={page.page_id}
                 text={page.raw_text}
                 passage={passage}
+                terms={terms}
                 figures={figures}
                 onSelectFigure={setZoomed}
               />
@@ -171,11 +175,13 @@ function ViewerTabs({
 function PageText({
   text,
   passage,
+  terms,
   figures,
   onSelectFigure,
 }: {
   text: string | null;
   passage: string | null;
+  terms?: string[];
   figures: PageFigure[];
   onSelectFigure: (figure: PageFigure) => void;
 }) {
@@ -213,6 +219,10 @@ function PageText({
       {passage && <MatchNote kind={match?.kind ?? null} />}
       {blocks.map((block, index) => {
         const key = `${block.start}-${index}`;
+        const activeTerms =
+          match?.kind === "exact" || match?.kind === "prefix" || match?.kind === "whitespace"
+            ? terms
+            : undefined;
 
         if (block.kind === "figure") {
           const figure = figures.find((f) => f.figure_id === block.figureId);
@@ -234,7 +244,7 @@ function PageText({
                 block.level <= 2 ? "text-[1.0625rem]" : "text-[0.9375rem]",
               )}
             >
-              <Highlighted block={block} range={range} markRef={markRef} />
+              <Highlighted block={block} range={range} markRef={markRef} terms={activeTerms} />
             </h3>
           );
         }
@@ -245,20 +255,20 @@ function PageText({
           // side already falls back this way rather than losing the words, and
           // a broken table drawn as a broken table would be worse than the
           // honest lines.
-          if (block.rows.length === 0) {
-            return (
-              <p key={key} className="mb-3 whitespace-pre-wrap last:mb-0">
-                <Highlighted block={block} range={range} markRef={markRef} />
-              </p>
-            );
-          }
+            if (block.rows.length === 0) {
+              return (
+                <p key={key} className="mb-3 whitespace-pre-wrap last:mb-0">
+                  <Highlighted block={block} range={range} markRef={markRef} terms={activeTerms} />
+                </p>
+              );
+            }
 
           return <PageTable key={key} block={block} range={range} markRef={markRef} />;
         }
 
         return (
           <p key={key} className="mb-3 last:mb-0">
-            <Highlighted block={block} range={range} markRef={markRef} />
+            <Highlighted block={block} range={range} markRef={markRef} terms={activeTerms} />
           </p>
         );
       })}
@@ -435,10 +445,12 @@ function Highlighted({
   block,
   range,
   markRef,
+  terms,
 }: {
   block: Exclude<PageBlock, { kind: "figure" }>;
   range: { start: number; end: number } | null;
   markRef: React.RefObject<HTMLElement | null>;
+  terms?: string[];
 }) {
   if (!range || range.end <= block.start || range.start >= block.end) {
     return <>{block.text}</>;
@@ -460,11 +472,35 @@ function Highlighted({
         ref={range.start >= block.start ? markRef : undefined}
         className="rounded-[0.2rem] bg-[var(--accent-subtle)] px-0.5 text-foreground"
       >
-        {block.text.slice(from, to)}
+        {renderHighlightedTerms(block.text.slice(from, to), terms)}
       </mark>
       {block.text.slice(to)}
     </>
   );
+}
+
+/**
+ * Renders a passage with its search terms in a darker shade of the passage
+ * mark. Matching lives in `lib/term-highlight.ts`; this only lays out spans.
+ * No padding on the inner mark, so shading a word never shifts the text.
+ */
+function renderHighlightedTerms(text: string, terms: string[] | undefined) {
+  const ranges = terms && terms.length > 0 ? findTermRanges(text, terms) : [];
+  if (ranges.length === 0) return <>{text}</>;
+
+  const elements: React.ReactNode[] = [];
+  let lastIndex = 0;
+  for (const { start, end } of ranges) {
+    if (start > lastIndex) elements.push(text.slice(lastIndex, start));
+    elements.push(
+      <mark key={start} className="rounded-[0.1rem] bg-[var(--accent)]/30 text-foreground">
+        {text.slice(start, end)}
+      </mark>,
+    );
+    lastIndex = end;
+  }
+  if (lastIndex < text.length) elements.push(text.slice(lastIndex));
+  return <>{elements}</>;
 }
 
 /**

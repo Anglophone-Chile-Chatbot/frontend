@@ -86,7 +86,12 @@ export type ViewerSource = Omit<ChatSource, "page_number" | "content"> & {
  * terminator (`done`, or `error` if generation failed mid-stream).
  */
 export type ChatStreamEvent =
-  | { type: "sources"; sources: ChatSource[] }
+  | {
+      type: "sources";
+      sources: ChatSource[];
+      related: ChatSource[];
+      terms: string[];
+    }
   | { type: "delta"; text: string }
   | { type: "done" }
   | { type: "error"; message: string };

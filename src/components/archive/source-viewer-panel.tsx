@@ -24,6 +24,7 @@ export function SourceViewerPanel({
   source,
   passage,
   query,
+  terms,
   onClose,
 }: {
   /** The page to show; `null` renders the panel's empty state. */
@@ -31,6 +32,8 @@ export function SourceViewerPanel({
   passage?: string | null;
   /** The reader's search term, carried into the issue by `ReadIssueLink`. */
   query?: string;
+  /** Active search terms to highlight within the passage. */
+  terms?: string[];
   onClose: () => void;
 }) {
   const { page, status, tab, setTab } = useSourcePage(source);
@@ -86,6 +89,7 @@ export function SourceViewerPanel({
             tab={tab}
             onTabChange={setTab}
             passage={passage ?? null}
+            terms={terms}
           />
         </>
       )}

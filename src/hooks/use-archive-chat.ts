@@ -38,6 +38,10 @@ export interface ChatTurn {
   answer: string;
   /** Chunks retrieved for this turn, available before the answer starts. */
   sources: ChatSource[];
+  /** Further matches retrieved but not grounded in the context. */
+  related: ChatSource[];
+  /** Search terms used for retrieval, for highlighting. */
+  terms: string[];
   status: "retrieving" | "streaming" | "complete" | "error";
   /** User-facing error copy, set only when `status === "error"`. */
   error?: string;
@@ -102,6 +106,8 @@ export function useArchiveChat(): UseArchiveChat {
           question: trimmed,
           answer: "",
           sources: [],
+          related: [],
+          terms: [],
           status: "retrieving",
           scope,
         },
@@ -147,7 +153,12 @@ export function useArchiveChat(): UseArchiveChat {
 
           for (const event of parser.push(decoder.decode(value, { stream: true }))) {
             if (event.type === "sources") {
-              patchTurn(id, { sources: event.sources, status: "streaming" });
+              patchTurn(id, { 
+                sources: event.sources, 
+                related: event.related,
+                terms: event.terms,
+                status: "streaming" 
+              });
             } else if (event.type === "delta") {
               answer += event.text;
               patchTurn(id, { answer, status: "streaming" });

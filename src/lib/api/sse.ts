@@ -88,8 +88,22 @@ function toEvent(name: string, data: unknown): ChatStreamEvent | null {
   switch (name) {
     case "sources": {
       const sources = payload.sources;
+      const related = payload.related;
+      const terms = payload.terms;
       if (!Array.isArray(sources)) return null;
-      return { type: "sources", sources: sources.filter(isChatSource) };
+      
+      const parsedSources = sources.filter(isChatSource);
+      const parsedRelated = Array.isArray(related) ? related.filter(isChatSource) : [];
+      const parsedTerms = Array.isArray(terms) 
+        ? terms.filter((t): t is string => typeof t === "string")
+        : [];
+        
+      return { 
+        type: "sources", 
+        sources: parsedSources,
+        related: parsedRelated,
+        terms: parsedTerms
+      };
     }
     case "delta": {
       const text = payload.text;

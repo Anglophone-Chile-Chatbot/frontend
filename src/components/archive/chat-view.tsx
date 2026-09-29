@@ -28,11 +28,13 @@ import { Transcript } from "./transcript";
 export function ChatView() {
   const { turns, isBusy, ask, stop, reset } = useArchiveChat();
   const [active, setActive] = useState<ChatSource | null>(null);
+  const [activeTerms, setActiveTerms] = useState<string[]>([]);
   const [scope, setScope] = useState<DocumentSummary[]>([]);
   const [isPickerOpen, setPickerOpen] = useState(false);
 
-  const openSource = useCallback((source: ChatSource) => {
+  const openSource = useCallback((source: ChatSource, terms: string[]) => {
     setActive(source);
+    setActiveTerms(terms);
   }, []);
 
   // The rail's "New question" clears the transcript — close any open
@@ -41,6 +43,7 @@ export function ChatView() {
   const startNewChat = useCallback(() => {
     reset();
     setActive(null);
+    setActiveTerms([]);
   }, [reset]);
 
   // Every question carries the scope in force when it was asked, so the
@@ -122,14 +125,22 @@ export function ChatView() {
       <SourceViewer
         source={active}
         passage={active?.content ?? null}
+        terms={activeTerms}
         onOpenChange={(open) => {
-          if (!open) setActive(null);
+          if (!open) {
+            setActive(null);
+            setActiveTerms([]);
+          }
         }}
       />
       <SourceViewerPanel
         source={active}
         passage={active?.content ?? null}
-        onClose={() => setActive(null)}
+        terms={activeTerms}
+        onClose={() => {
+          setActive(null);
+          setActiveTerms([]);
+        }}
       />
     </div>
   );
