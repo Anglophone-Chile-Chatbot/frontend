@@ -213,6 +213,7 @@ export interface ChatRequestBody {
   publications?: string[];
   date_from?: string | null;
   date_to?: string | null;
+  undated?: boolean;
 }
 
 /** An issue count for one year within a publication. */
@@ -241,6 +242,8 @@ export interface ArchiveFilterState {
   publications: string[];
   dateFrom: string | null;
   dateTo: string | null;
+  /** Only issues whose publication or date could not be read. */
+  undated: boolean;
 }
 
 /** Mirrors `MAX_SCOPE_DOCUMENTS` in `backend/app/schemas/chat.py`. */

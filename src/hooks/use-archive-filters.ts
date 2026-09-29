@@ -39,6 +39,7 @@ export function useArchiveFilters() {
       updateUrl({
         ...filters,
         publications: pub ? [pub] : [],
+        undated: false,
       });
     },
     [filters, updateUrl],
@@ -53,6 +54,7 @@ export function useArchiveFilters() {
       updateUrl({
         ...filters,
         publications: nextPubs,
+        undated: false,
       });
     },
     [filters, updateUrl],
@@ -64,6 +66,7 @@ export function useArchiveFilters() {
         ...filters,
         dateFrom: from,
         dateTo: to,
+        undated: false,
       });
     },
     [filters, updateUrl],
@@ -77,7 +80,7 @@ export function useArchiveFilters() {
    */
   const selectPublicationDates = useCallback(
     (pub: string, from: string | null, to: string | null) => {
-      updateUrl({ publications: [pub], dateFrom: from, dateTo: to });
+      updateUrl({ publications: [pub], dateFrom: from, dateTo: to, undated: false });
     },
     [updateUrl],
   );
@@ -98,7 +101,12 @@ export function useArchiveFilters() {
       publications: [],
       dateFrom: null,
       dateTo: null,
+      undated: false,
     });
+  }, [updateUrl]);
+
+  const selectUndated = useCallback(() => {
+    updateUrl({ publications: [], dateFrom: null, dateTo: null, undated: true });
   }, [updateUrl]);
 
   const removePublication = useCallback(
@@ -128,6 +136,7 @@ export function useArchiveFilters() {
     setDateRange,
     setYear,
     selectPublicationDates,
+    selectUndated,
     clearFilters,
     removePublication,
     clearDates,

@@ -69,6 +69,7 @@ export function ArchiveBrowser() {
     setPublication,
     setDateRange,
     selectPublicationDates,
+    selectUndated,
     clearFilters,
     removePublication,
   } = useArchiveFilters();
@@ -205,6 +206,7 @@ export function ArchiveBrowser() {
         onSelectPublication={setPublication}
         onSelectDateRange={setDateRange}
         onSelectPublicationDates={selectPublicationDates}
+        onSelectUndated={selectUndated}
         onClearFilters={clearFilters}
         className="rule-r hidden lg:flex"
       />
@@ -288,6 +290,7 @@ export function ArchiveBrowser() {
             onSelectPublication={setPublication}
             onSelectDateRange={setDateRange}
             onSelectPublicationDates={selectPublicationDates}
+            onSelectUndated={selectUndated}
             onClearFilters={clearFilters}
           />
 

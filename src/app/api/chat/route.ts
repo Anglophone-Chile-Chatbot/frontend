@@ -69,6 +69,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (dateFrom !== undefined) payload.date_from = dateFrom;
   if (dateTo !== undefined) payload.date_to = dateTo;
+  if ((body as Record<string, unknown> | null)?.undated === true) payload.undated = true;
 
   let upstream: Response;
   try {

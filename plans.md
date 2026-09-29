@@ -41,19 +41,9 @@ code; APIs differ from training data. See AGENTS.md.
 
 ---
 
-## CHUNK 18 leftovers — open after the filters shipped locally (2026-09-29, from Claude Code's review)
+## Open verification items (2026-09-29)
 
-Built and reviewed: the newspapers rail, drawer, chips, URL state, and chat scoping. Open, in order of value:
-- [ ] **The Ask page has no newspaper picker.** The filter is chosen on Browse and now follows the header link to
-      Ask, but Ask itself has no rail or drawer trigger. Add the drawer button beside the composer.
-- [ ] **Undated issues are listed but unreachable.** The rail shows the "Undated issues" count with no way to open
-      them; the backend has no undated filter yet.
-- [ ] **The scope label drops months** ("1904" for 1904-06-01 to 1904-12-31); only whole-year ranges read
-      exactly.
-- [ ] **A document chosen in the scope picker silently beats the rail filter for chat.** Show both, or say which
-      wins.
-- [ ] **The sheet's own Close button is 28px** (the shared shadcn Sheet), under the 44px floor.
-- [ ] Look at it on a real phone and on the live site after both deploys.
+- [ ] Look at the newspapers folder rail and filters on a real phone and on the live site after both deploys.
 
 ---
 

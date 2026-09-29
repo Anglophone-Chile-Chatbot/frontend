@@ -10,6 +10,7 @@ import { formatScopeLabel, hasActiveFilters } from "@/lib/archive-filters";
 import { ChatEmptyState } from "./chat-empty-state";
 import { Composer } from "./composer";
 import { DocumentRail } from "./document-rail";
+import { NewspaperDrawer } from "./newspaper-rail";
 import { ScopeBar } from "./scope-bar";
 import { ScopePicker } from "./scope-picker";
 import { SourceViewer } from "./source-viewer";
@@ -29,11 +30,19 @@ import { Transcript } from "./transcript";
  */
 export function ChatView() {
   const { turns, isBusy, ask, stop, reset } = useArchiveChat();
-  const { filters, clearFilters } = useArchiveFilters();
+  const {
+    filters,
+    clearFilters,
+    setPublication,
+    setDateRange,
+    selectPublicationDates,
+    selectUndated,
+  } = useArchiveFilters();
   const [active, setActive] = useState<ChatSource | null>(null);
   const [activeTerms, setActiveTerms] = useState<string[]>([]);
   const [scope, setScope] = useState<DocumentSummary[]>([]);
   const [isPickerOpen, setPickerOpen] = useState(false);
+  const [isNewspapersOpen, setNewspapersOpen] = useState(false);
 
   const hasFilters = hasActiveFilters(filters);
   const filterScopeLabel = hasFilters ? formatScopeLabel(filters) : null;
@@ -56,21 +65,19 @@ export function ChatView() {
   // transcript stays truthful after the scope changes.
   const askScoped = useCallback(
     (question: string) => {
-      if (scope.length > 0) {
-        return ask(question, {
-          ids: scope.map((doc) => doc.document_id),
-          labels: scope.map((doc) => doc.publication ?? doc.title),
-        });
-      }
-      if (hasFilters) {
-        return ask(question, {
-          publications: filters.publications.length > 0 ? filters.publications : undefined,
-          date_from: filters.dateFrom ?? undefined,
-          date_to: filters.dateTo ?? undefined,
-          labels: [formatScopeLabel(filters)],
-        });
-      }
-      return ask(question, null);
+      if (scope.length === 0 && !hasFilters) return ask(question, null);
+      // Chosen issues and the newspaper filter both apply; the backend ANDs
+      // them. Sending only one silently dropped the other.
+      const labels = scope.map((doc) => doc.publication ?? doc.title);
+      if (hasFilters) labels.push(formatScopeLabel(filters));
+      return ask(question, {
+        ids: scope.length > 0 ? scope.map((doc) => doc.document_id) : undefined,
+        publications: filters.publications.length > 0 ? filters.publications : undefined,
+        date_from: filters.dateFrom ?? undefined,
+        date_to: filters.dateTo ?? undefined,
+        undated: filters.undated || undefined,
+        labels,
+      });
     },
     [ask, scope, hasFilters, filters],
   );
@@ -111,6 +118,7 @@ export function ChatView() {
             selected={scope}
             filterScopeLabel={filterScopeLabel}
             onOpen={() => setPickerOpen(true)}
+            onOpenNewspapers={() => setNewspapersOpen(true)}
             onClear={() => {
               setScope([]);
               if (hasFilters) clearFilters();
@@ -123,6 +131,17 @@ export function ChatView() {
           <Composer onSubmit={askScoped} onStop={stop} isBusy={isBusy} />
         </div>
       </div>
+
+      <NewspaperDrawer
+        open={isNewspapersOpen}
+        onOpenChange={setNewspapersOpen}
+        filters={filters}
+        onSelectPublication={setPublication}
+        onSelectDateRange={setDateRange}
+        onSelectPublicationDates={selectPublicationDates}
+        onSelectUndated={selectUndated}
+        onClearFilters={clearFilters}
+      />
 
       <ScopePicker
         open={isPickerOpen}

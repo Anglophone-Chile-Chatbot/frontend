@@ -30,6 +30,7 @@ interface NewspaperRailProps {
   onSelectDateRange: (from: string | null, to: string | null) => void;
   /** Newspaper and dates chosen together, as one URL update. */
   onSelectPublicationDates: (pub: string, from: string | null, to: string | null) => void;
+  onSelectUndated: () => void;
   onClearFilters: () => void;
   className?: string;
   onItemSelect?: () => void;
@@ -47,6 +48,7 @@ export function NewspaperRail({
   onSelectPublication,
   onSelectDateRange,
   onSelectPublicationDates,
+  onSelectUndated,
   onClearFilters,
   className,
   onItemSelect,
@@ -383,8 +385,20 @@ export function NewspaperRail({
         {undatedCount > 0 && (
           <li
             role="treeitem"
-            aria-selected={false}
-            className="mt-2 rounded-md border border-dashed border-border/80 px-2.5 py-2 text-[0.75rem] text-muted-foreground"
+            tabIndex={filters.undated ? 0 : -1}
+            aria-selected={filters.undated}
+            onClick={() => {
+              onSelectUndated();
+              onItemSelect?.();
+            }}
+            className={cn(
+              "mt-2 min-h-[44px] cursor-pointer rounded-md border border-dashed px-2.5 py-2 text-[0.75rem] text-muted-foreground",
+              "transition-colors duration-[140ms] ease-[var(--ease-crisp)] hover:bg-secondary",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+              filters.undated
+                ? "border-[var(--accent)] bg-[var(--accent)]/[0.06]"
+                : "border-border/80",
+            )}
           >
             <div className="flex items-center justify-between font-medium text-foreground">
               <span>Undated issues</span>
@@ -505,6 +519,7 @@ export function NewspaperDrawer({
   onSelectPublication,
   onSelectDateRange,
   onSelectPublicationDates,
+  onSelectUndated,
   onClearFilters,
 }: {
   open: boolean;
@@ -513,6 +528,7 @@ export function NewspaperDrawer({
   onSelectPublication: (pub: string | null) => void;
   onSelectDateRange: (from: string | null, to: string | null) => void;
   onSelectPublicationDates: (pub: string, from: string | null, to: string | null) => void;
+  onSelectUndated: () => void;
   onClearFilters: () => void;
 }) {
   return (
@@ -536,6 +552,7 @@ export function NewspaperDrawer({
             onSelectPublication={onSelectPublication}
             onSelectDateRange={onSelectDateRange}
             onSelectPublicationDates={onSelectPublicationDates}
+            onSelectUndated={onSelectUndated}
             onClearFilters={onClearFilters}
             className="w-full border-r-0 bg-transparent"
             onItemSelect={() => onOpenChange(false)}
@@ -561,6 +578,24 @@ export function ActiveFilterChips({
   if (!hasActiveFilters(filters)) return null;
 
   const dateLabel = formatDateChipLabel(filters.dateFrom, filters.dateTo);
+
+  if (filters.undated) {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 pt-2.5">
+        <span className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card py-1 pl-3 pr-1 text-xs text-foreground shadow-xs">
+          <span className="font-heading text-[0.8125rem]">Undated issues</span>
+          <button
+            type="button"
+            onClick={onClearAll}
+            aria-label="Remove undated filter"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 pt-2.5">

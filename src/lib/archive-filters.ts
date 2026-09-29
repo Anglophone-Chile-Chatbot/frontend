@@ -1,4 +1,5 @@
 import type { ArchiveFilterState } from "@/lib/api/types";
+import { formatIssueDateShort } from "@/lib/citations";
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -17,6 +18,10 @@ export function isIsoDate(value: string): boolean {
   );
 }
 
+function isTruthy(value: string | null): boolean {
+  return value === "1" || value === "true";
+}
+
 /** Safe regex escaping for any user/data strings. */
 export function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27,12 +32,13 @@ export function parseFilterParams(
   params: URLSearchParams | Record<string, string | string[] | undefined> | null | undefined,
 ): ArchiveFilterState {
   if (!params) {
-    return { publications: [], dateFrom: null, dateTo: null };
+    return { publications: [], dateFrom: null, dateTo: null, undated: false };
   }
 
   const publications: string[] = [];
   let dateFrom: string | null = null;
   let dateTo: string | null = null;
+  let undated = false;
 
   if (params instanceof URLSearchParams) {
     const rawPubs = params.getAll("pub").concat(params.getAll("publication"));
@@ -50,6 +56,7 @@ export function parseFilterParams(
     if (rawTo && isIsoDate(rawTo)) {
       dateTo = rawTo;
     }
+    undated = isTruthy(params.get("undated"));
   } else {
     // Record<string, string | string[] | undefined>
     const pubVal = params.pub ?? params.publication;
@@ -73,9 +80,14 @@ export function parseFilterParams(
     if (typeof toVal === "string" && isIsoDate(toVal)) {
       dateTo = toVal;
     }
+
+    const undatedVal = params.undated;
+    undated = typeof undatedVal === "string" && isTruthy(undatedVal);
   }
 
-  return { publications, dateFrom, dateTo };
+  // "Undated" is a set of its own: a paper or a date range cannot apply to it.
+  if (undated) return { publications: [], dateFrom: null, dateTo: null, undated: true };
+  return { publications, dateFrom, dateTo, undated: false };
 }
 
 /** Serialize filter state to URLSearchParams (omitting empty filters). */
@@ -92,7 +104,12 @@ export function serializeFilterParams(
   params.delete("date_from");
   params.delete("to");
   params.delete("date_to");
+  params.delete("undated");
 
+  if (filters.undated) {
+    params.set("undated", "1");
+    return params;
+  }
   for (const pub of filters.publications) {
     params.append("pub", pub);
   }
@@ -109,6 +126,7 @@ export function serializeFilterParams(
 /** Check if any newspaper or date filter is active. */
 export function hasActiveFilters(filters: ArchiveFilterState): boolean {
   return (
+    filters.undated ||
     filters.publications.length > 0 ||
     filters.dateFrom !== null ||
     filters.dateTo !== null
@@ -128,6 +146,8 @@ export function formatScopeLabel(filters: ArchiveFilterState): string {
     return "All newspapers";
   }
 
+  if (filters.undated) return "Undated issues";
+
   const parts: string[] = [];
 
   if (filters.publications.length === 1) {
@@ -136,40 +156,28 @@ export function formatScopeLabel(filters: ArchiveFilterState): string {
     parts.push(`${filters.publications.length} newspapers`);
   }
 
-  if (filters.dateFrom && filters.dateTo) {
-    const fromYear = filters.dateFrom.slice(0, 4);
-    const toYear = filters.dateTo.slice(0, 4);
-    if (fromYear === toYear) {
-      parts.push(fromYear);
-    } else {
-      parts.push(`${fromYear}–${toYear}`);
-    }
-  } else if (filters.dateFrom) {
-    parts.push(`from ${filters.dateFrom.slice(0, 4)}`);
-  } else if (filters.dateTo) {
-    parts.push(`until ${filters.dateTo.slice(0, 4)}`);
-  }
+  const range = formatDateChipLabel(filters.dateFrom, filters.dateTo);
+  if (range) parts.push(range);
 
   return parts.join(", ") || "Filtered archive";
 }
 
-/** Format a friendly label for the date filter chip. */
+/**
+ * Read a date range the way a person would say it. Whole years read as "1904"
+ * or "1904–1905"; anything else keeps its day and month ("1 Jun 1904 – 31 Dec
+ * 1904"), so a half-year range is never mislabelled as a whole year.
+ */
 export function formatDateChipLabel(dateFrom: string | null, dateTo: string | null): string {
+  const short = (iso: string) => formatIssueDateShort(iso) ?? iso;
   if (dateFrom && dateTo) {
     const fromYear = dateFrom.slice(0, 4);
     const toYear = dateTo.slice(0, 4);
-    if (dateFrom === `${fromYear}-01-01` && dateTo === `${fromYear}-12-31`) {
-      return fromYear;
-    }
-    if (fromYear === toYear) {
-      return `${dateFrom} to ${dateTo}`;
-    }
     if (dateFrom === `${fromYear}-01-01` && dateTo === `${toYear}-12-31`) {
-      return `${fromYear}–${toYear}`;
+      return fromYear === toYear ? fromYear : `${fromYear}–${toYear}`;
     }
-    return `${dateFrom} to ${dateTo}`;
+    return `${short(dateFrom)} – ${short(dateTo)}`;
   }
-  if (dateFrom) return `From ${dateFrom}`;
-  if (dateTo) return `To ${dateTo}`;
+  if (dateFrom) return `From ${short(dateFrom)}`;
+  if (dateTo) return `Until ${short(dateTo)}`;
   return "";
 }

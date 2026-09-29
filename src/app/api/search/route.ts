@@ -87,6 +87,11 @@ export async function GET(request: Request): Promise<Response> {
     upstreamUrl.searchParams.set("date_to", dateTo);
   }
 
+  const undated = params.get("undated");
+  if (undated === "1" || undated === "true") {
+    upstreamUrl.searchParams.set("undated", "true");
+  }
+
   try {
     const upstream = await fetch(upstreamUrl, {
       headers: { Accept: "application/json" },

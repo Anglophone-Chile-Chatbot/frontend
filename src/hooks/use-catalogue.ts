@@ -52,7 +52,7 @@ export function useCatalogue(options?: { filters?: ArchiveFilterState }) {
   const controllerRef = useRef<AbortController | null>(null);
 
   const filters = options?.filters;
-  const filterKey = `${filters?.publications.join(",") ?? ""}|${filters?.dateFrom ?? ""}|${filters?.dateTo ?? ""}`;
+  const filterKey = `${filters?.publications.join(",") ?? ""}|${filters?.dateFrom ?? ""}|${filters?.dateTo ?? ""}|${filters?.undated ? "u" : ""}`;
 
   const term = filter.trim();
 
@@ -80,6 +80,7 @@ export function useCatalogue(options?: { filters?: ArchiveFilterState }) {
           }
           if (filters.dateFrom) params.set("from", filters.dateFrom);
           if (filters.dateTo) params.set("to", filters.dateTo);
+          if (filters.undated) params.set("undated", "1");
         }
 
         const response = await fetch(`/api/documents?${params}`, {

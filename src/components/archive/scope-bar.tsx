@@ -1,6 +1,6 @@
 "use client";
 
-import { Library, X } from "lucide-react";
+import { Folder, Library, X } from "lucide-react";
 
 import type { DocumentSummary } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
@@ -21,6 +21,7 @@ export function ScopeBar({
   selected,
   filterScopeLabel,
   onOpen,
+  onOpenNewspapers,
   onClear,
   disabled = false,
 }: {
@@ -29,12 +30,21 @@ export function ScopeBar({
   /** Optional filter-derived scope label (e.g. "The Star of Chile, 1904–1905"). */
   filterScopeLabel?: string | null;
   onOpen: () => void;
+  /** Opens the newspaper and date chooser (the same one Browse has). */
+  onOpenNewspapers: () => void;
   onClear: () => void;
   /** True while a turn is streaming — scope must not change mid-answer. */
   disabled?: boolean;
 }) {
   const isScoped = selected.length > 0 || !!filterScopeLabel;
-  const label = selected.length > 0 ? describe(selected) : (filterScopeLabel ?? "");
+  // A picked issue and a newspaper filter both constrain the answer (the
+  // backend ANDs them), so the bar names both rather than hiding one.
+  const label =
+    selected.length > 0
+      ? filterScopeLabel
+        ? `${describe(selected)} · ${filterScopeLabel}`
+        : describe(selected)
+      : (filterScopeLabel ?? "");
 
   return (
     <div className="mx-auto w-full max-w-3xl px-3 pt-2 sm:px-4">
@@ -49,7 +59,7 @@ export function ScopeBar({
               : "Scope questions to a document"
           }
           className={cn(
-            "flex min-h-[36px] min-w-0 flex-1 items-center gap-2 rounded-md px-2",
+            "flex min-h-[44px] min-w-0 flex-1 items-center gap-2 rounded-md px-2",
             "text-left transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
             "hover:bg-secondary disabled:pointer-events-none disabled:opacity-55",
           )}
@@ -76,6 +86,22 @@ export function ScopeBar({
           )}
         </button>
 
+        <button
+          type="button"
+          onClick={onOpenNewspapers}
+          disabled={disabled}
+          aria-label="Choose newspapers and dates"
+          className={cn(
+            "flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-3",
+            "text-[0.8125rem] text-muted-foreground transition-colors duration-[120ms]",
+            "ease-[var(--ease-crisp)] hover:bg-secondary hover:text-foreground",
+            "disabled:pointer-events-none disabled:opacity-55",
+          )}
+        >
+          <Folder className="h-4 w-4" />
+          <span className="hidden sm:inline">Newspapers</span>
+        </button>
+
         {isScoped && (
           <button
             type="button"
@@ -83,7 +109,7 @@ export function ScopeBar({
             disabled={disabled}
             aria-label="Clear document scope and ask the whole archive"
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-md",
               "text-muted-foreground transition-colors duration-[120ms]",
               "ease-[var(--ease-crisp)] hover:bg-secondary hover:text-foreground",
               "disabled:pointer-events-none disabled:opacity-55",

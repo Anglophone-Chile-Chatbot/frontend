@@ -32,6 +32,7 @@ export interface ChatScope {
   publications?: string[];
   date_from?: string;
   date_to?: string;
+  undated?: boolean;
 }
 
 export interface ChatTurn {
@@ -129,6 +130,7 @@ export function useArchiveChat(): UseArchiveChat {
           }
           if (scope.date_from) payload.date_from = scope.date_from;
           if (scope.date_to) payload.date_to = scope.date_to;
+          if (scope.undated) payload.undated = true;
         }
 
         const response = await fetch("/api/chat", {
