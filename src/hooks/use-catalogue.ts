@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { DocumentListResponse, DocumentSummary } from "@/lib/api/types";
+import type {
+  ArchiveFilterState,
+  DocumentListResponse,
+  DocumentSummary,
+} from "@/lib/api/types";
 
 /**
  * The archive's catalogue: which issues exist, filtered and paged.
@@ -37,7 +41,7 @@ const DEBOUNCE_MS = 250;
 
 export type CatalogueStatus = "loading" | "loaded" | "error";
 
-export function useCatalogue() {
+export function useCatalogue(options?: { filters?: ArchiveFilterState }) {
   const [filter, setFilter] = useState("");
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -47,51 +51,65 @@ export function useCatalogue() {
   const [applied, setApplied] = useState("");
   const controllerRef = useRef<AbortController | null>(null);
 
+  const filters = options?.filters;
+  const filterKey = `${filters?.publications.join(",") ?? ""}|${filters?.dateFrom ?? ""}|${filters?.dateTo ?? ""}`;
+
   const term = filter.trim();
 
-  const load = useCallback(async (query: string, offset: number) => {
-    controllerRef.current?.abort();
-    const controller = new AbortController();
-    controllerRef.current = controller;
+  const load = useCallback(
+    async (query: string, offset: number) => {
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
 
-    if (offset === 0) setStatus("loading");
-    else setIsLoadingMore(true);
+      if (offset === 0) setStatus("loading");
+      else setIsLoadingMore(true);
 
-    try {
-      const params = new URLSearchParams({
-        limit: String(PAGE_SIZE),
-        offset: String(offset),
-      });
-      // Omitted rather than sent empty — the Route Handler drops an empty `q`
-      // anyway, and sending one would read as a filter that matched everything.
-      if (query.length > 0) params.set("q", query);
+      try {
+        const params = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          offset: String(offset),
+        });
+        // Omitted rather than sent empty — the Route Handler drops an empty `q`
+        // anyway, and sending one would read as a filter that matched everything.
+        if (query.length > 0) params.set("q", query);
 
-      const response = await fetch(`/api/documents?${params}`, {
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error(String(response.status));
+        if (filters) {
+          for (const pub of filters.publications) {
+            params.append("pub", pub);
+          }
+          if (filters.dateFrom) params.set("from", filters.dateFrom);
+          if (filters.dateTo) params.set("to", filters.dateTo);
+        }
 
-      const body = (await response.json()) as DocumentListResponse;
-      setTotal(body.total);
-      setDocuments((current) =>
-        offset === 0 ? body.results : [...current, ...body.results],
-      );
-      setApplied(query);
-      setStatus("loaded");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setStatus("error");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, []);
+        const response = await fetch(`/api/documents?${params}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(String(response.status));
 
-  // First page, and every change of filter. Debounced so typing "Mercury" is
-  // one request rather than seven.
+        const body = (await response.json()) as DocumentListResponse;
+        setTotal(body.total);
+        setDocuments((current) =>
+          offset === 0 ? body.results : [...current, ...body.results],
+        );
+        setApplied(query);
+        setStatus("loaded");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setStatus("error");
+      } finally {
+        setIsLoadingMore(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filterKey],
+  );
+
+  // First page, and every change of text filter or faceted filters.
   useEffect(() => {
     const timer = window.setTimeout(() => void load(term, 0), DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [term, load]);
+  }, [term, filterKey, load]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 

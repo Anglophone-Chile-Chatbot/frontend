@@ -19,18 +19,22 @@ import { cn } from "@/lib/utils";
  */
 export function ScopeBar({
   selected,
+  filterScopeLabel,
   onOpen,
   onClear,
   disabled = false,
 }: {
   /** Documents the chat is pinned to; empty means corpus-wide. */
   selected: DocumentSummary[];
+  /** Optional filter-derived scope label (e.g. "The Star of Chile, 1904–1905"). */
+  filterScopeLabel?: string | null;
   onOpen: () => void;
   onClear: () => void;
   /** True while a turn is streaming — scope must not change mid-answer. */
   disabled?: boolean;
 }) {
-  const isScoped = selected.length > 0;
+  const isScoped = selected.length > 0 || !!filterScopeLabel;
+  const label = selected.length > 0 ? describe(selected) : (filterScopeLabel ?? "");
 
   return (
     <div className="mx-auto w-full max-w-3xl px-3 pt-2 sm:px-4">
@@ -41,7 +45,7 @@ export function ScopeBar({
           disabled={disabled}
           aria-label={
             isScoped
-              ? `Asking within ${describe(selected)}. Change document scope`
+              ? `Asking within ${label}. Change document scope`
               : "Scope questions to a document"
           }
           className={cn(
@@ -61,7 +65,7 @@ export function ScopeBar({
             <span className="min-w-0 flex-1 truncate text-[0.8125rem] leading-tight">
               <span className="text-muted-foreground">Asking within </span>
               <span className="font-medium text-foreground">
-                {describe(selected)}
+                {label}
               </span>
             </span>
           ) : (

@@ -4,7 +4,8 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 import type { CatalogueGroup } from "@/hooks/use-catalogue";
-import type { DocumentSummary } from "@/lib/api/types";
+import type { ArchiveFilterState, DocumentSummary } from "@/lib/api/types";
+import { formatScopeLabel, hasActiveFilters } from "@/lib/archive-filters";
 import { formatIssueDateShort } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +55,8 @@ export function DocumentCatalogue({
   isLoadingMore,
   hasMore,
   onLoadMore,
+  filters,
+  onClearFilters,
 }: {
   groups: CatalogueGroup[];
   /** Issues matching the current filter, corpus-wide — not `shown`. */
@@ -66,17 +69,31 @@ export function DocumentCatalogue({
   isLoadingMore: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  filters?: ArchiveFilterState;
+  onClearFilters?: () => void;
 }) {
+  const isFiltered = filters ? hasActiveFilters(filters) : false;
+
   if (status === "loading") return <CatalogueLoadingNote />;
   if (status === "error") return <CatalogueErrorNote />;
-  if (groups.length === 0) return <CatalogueEmptyNote filter={applied} />;
+  if (groups.length === 0) {
+    return (
+      <CatalogueEmptyNote
+        filter={applied}
+        filters={filters}
+        onClearFilters={onClearFilters}
+      />
+    );
+  }
 
   return (
     <>
       <p className="eyebrow mb-4">
         {applied.length > 0
           ? `${total} ${total === 1 ? "issue matches" : "issues match"} “${applied}”`
-          : `${total} ${total === 1 ? "issue" : "issues"} in the archive`}
+          : isFiltered
+            ? `${total} ${total === 1 ? "issue matches your filter" : "issues match your filter"}`
+            : `${total} ${total === 1 ? "issue" : "issues"} in the archive`}
       </p>
 
       <div className="flex flex-col gap-7">
@@ -242,7 +259,15 @@ function CatalogueLoadingNote() {
   );
 }
 
-function CatalogueEmptyNote({ filter }: { filter: string }) {
+function CatalogueEmptyNote({
+  filter,
+  filters,
+  onClearFilters,
+}: {
+  filter: string;
+  filters?: ArchiveFilterState;
+  onClearFilters?: () => void;
+}) {
   if (filter.length > 0) {
     return (
       <div className="measure">
@@ -253,6 +278,28 @@ function CatalogueEmptyNote({ filter }: { filter: string }) {
           This filter matches publication names and issue titles. To find the
           word inside the pages themselves, search the full text below.
         </p>
+      </div>
+    );
+  }
+
+  if (filters && hasActiveFilters(filters)) {
+    return (
+      <div className="measure">
+        <h2 className="font-heading text-[0.9375rem] text-foreground">
+          No issues match {formatScopeLabel(filters)}
+        </h2>
+        <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
+          No scanned issues in the archive match the selected newspaper or date filter.
+        </p>
+        {onClearFilters && (
+          <button
+            type="button"
+            onClick={onClearFilters}
+            className="mt-3.5 inline-flex min-h-[44px] items-center justify-center rounded-md border border-border bg-card px-4 text-xs font-medium text-foreground transition-colors duration-[140ms] ease-[var(--ease-crisp)] hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
     );
   }

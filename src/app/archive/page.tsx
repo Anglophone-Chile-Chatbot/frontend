@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { ArchiveBrowser } from "@/components/archive/archive-browser";
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function ArchivePage() {
-  return <ArchiveBrowser />;
+  return (
+    <Suspense>
+      <ArchiveBrowser />
+    </Suspense>
+  );
 }

@@ -34,6 +34,23 @@ export async function GET(request: Request): Promise<Response> {
   // Omitted rather than sent empty: the backend treats an absent `q` as
   // "no filter", and an empty string would be a substring match on everything.
   if (q.length > 0) upstreamUrl.searchParams.set("q", q);
+
+  const publications = params.getAll("publication").concat(params.getAll("pub"));
+  for (const pub of publications) {
+    const trimmed = pub.trim();
+    if (trimmed.length > 0) upstreamUrl.searchParams.append("publication", trimmed);
+  }
+
+  const dateFrom = params.get("date_from") ?? params.get("from");
+  if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+    upstreamUrl.searchParams.set("date_from", dateFrom);
+  }
+
+  const dateTo = params.get("date_to") ?? params.get("to");
+  if (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+    upstreamUrl.searchParams.set("date_to", dateTo);
+  }
+
   upstreamUrl.searchParams.set("limit", String(limit));
   upstreamUrl.searchParams.set("offset", String(offset));
 

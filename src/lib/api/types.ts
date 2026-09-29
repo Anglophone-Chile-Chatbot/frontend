@@ -205,10 +205,42 @@ export interface DocumentListResponse {
  *
  * `document_ids` omitted means corpus-wide retrieval, which is the default
  * mode. When present, retrieval is constrained to those documents.
+ * `publications`, `date_from`, `date_to` allow broad scoping without listing IDs.
  */
 export interface ChatRequestBody {
   message: string;
   document_ids?: string[];
+  publications?: string[];
+  date_from?: string | null;
+  date_to?: string | null;
+}
+
+/** An issue count for one year within a publication. */
+export interface YearFacet {
+  year: number;
+  issue_count: number;
+}
+
+/** Facet summary for one publication run. */
+export interface PublicationFacet {
+  publication: string;
+  issue_count: number;
+  first_issue: string | null;
+  last_issue: string | null;
+  years: YearFacet[];
+}
+
+/** Archive facets response from /api/documents/facets. */
+export interface DocumentFacetsResponse {
+  facets: PublicationFacet[];
+  undated_count: number;
+}
+
+/** Active archive filters for newspapers and dates. */
+export interface ArchiveFilterState {
+  publications: string[];
+  dateFrom: string | null;
+  dateTo: string | null;
 }
 
 /** Mirrors `MAX_SCOPE_DOCUMENTS` in `backend/app/schemas/chat.py`. */

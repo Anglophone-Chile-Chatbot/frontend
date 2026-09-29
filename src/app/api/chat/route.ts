@@ -54,11 +54,20 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  // Absent means corpus-wide. The key is omitted rather than sent as null so
+  const publications = readPublications(body);
+  const dateFrom = readDate(body, "date_from");
+  const dateTo = readDate(body, "date_to");
+
+  // Absent means corpus-wide. The keys are omitted rather than sent as null so
   // the unscoped request body is byte-identical to what it was before scoping
   // existed.
   const payload: ChatRequestBody = { message };
   if (scope !== undefined) payload.document_ids = scope;
+  if (publications !== undefined && publications.length > 0) {
+    payload.publications = publications;
+  }
+  if (dateFrom !== undefined) payload.date_from = dateFrom;
+  if (dateTo !== undefined) payload.date_to = dateTo;
 
   let upstream: Response;
   try {
@@ -129,6 +138,20 @@ function readDocumentIds(body: unknown): string[] | undefined | typeof INVALID {
   }
 
   return raw as string[];
+}
+
+function readPublications(body: unknown): string[] | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const raw = (body as Record<string, unknown>).publications;
+  if (!Array.isArray(raw)) return undefined;
+  return raw.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function readDate(body: unknown, key: string): string | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const raw = (body as Record<string, unknown>)[key];
+  if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return undefined;
 }
 
 function jsonError(error: string, code: string, status: number): Response {

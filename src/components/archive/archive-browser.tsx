@@ -1,16 +1,22 @@
 "use client";
 
-import { Loader2, Search } from "lucide-react";
+import { Folder, Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useArchiveFilters } from "@/hooks/use-archive-filters";
 import { useCatalogue } from "@/hooks/use-catalogue";
 import type { SearchResponse, SearchResult, ViewerSource } from "@/lib/api/types";
+import { hasActiveFilters } from "@/lib/archive-filters";
 import { formatIssueDateShort } from "@/lib/citations";
 import { flattenSnippetMarkdown } from "@/lib/snippet-text";
 import { cn } from "@/lib/utils";
 
 import { DocumentCatalogue } from "./document-catalogue";
-import { DocumentRail } from "./document-rail";
+import {
+  ActiveFilterChips,
+  NewspaperDrawer,
+  NewspaperRail,
+} from "./newspaper-rail";
 import { SourceViewer } from "./source-viewer";
 import { SourceViewerPanel } from "./source-viewer-panel";
 
@@ -58,7 +64,18 @@ const DEBOUNCE_MS = 250;
 type SearchStatus = "idle" | "searching" | "loaded" | "error";
 
 export function ArchiveBrowser() {
-  const catalogue = useCatalogue();
+  const {
+    filters,
+    setPublication,
+    setYear,
+    setDateRange,
+    clearFilters,
+    removePublication,
+  } = useArchiveFilters();
+
+  const [isDrawerOpen, setDrawerOpen] = useState(false);
+
+  const catalogue = useCatalogue({ filters });
   const { filter, setFilter } = catalogue;
 
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -79,39 +96,51 @@ export function ArchiveBrowser() {
   } | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
-  const runSearch = useCallback(async (term: string, offset: number) => {
-    controllerRef.current?.abort();
-    const controller = new AbortController();
-    controllerRef.current = controller;
+  const filterKey = `${filters.publications.join(",")}|${filters.dateFrom ?? ""}|${filters.dateTo ?? ""}`;
 
-    if (offset === 0) setStatus("searching");
-    else setIsLoadingMore(true);
+  const runSearch = useCallback(
+    async (term: string, offset: number) => {
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
 
-    try {
-      const params = new URLSearchParams({
-        q: term,
-        limit: String(PAGE_SIZE),
-        offset: String(offset),
-      });
-      const response = await fetch(`/api/search?${params}`, {
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error(String(response.status));
+      if (offset === 0) setStatus("searching");
+      else setIsLoadingMore(true);
 
-      const body = (await response.json()) as SearchResponse;
-      setTotal(body.total);
-      setResults((current) =>
-        offset === 0 ? body.results : [...current, ...body.results],
-      );
-      setSubmitted(term);
-      setStatus("loaded");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setStatus("error");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, []);
+      try {
+        const params = new URLSearchParams({
+          q: term,
+          limit: String(PAGE_SIZE),
+          offset: String(offset),
+        });
+        for (const pub of filters.publications) {
+          params.append("pub", pub);
+        }
+        if (filters.dateFrom) params.set("from", filters.dateFrom);
+        if (filters.dateTo) params.set("to", filters.dateTo);
+
+        const response = await fetch(`/api/search?${params}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(String(response.status));
+
+        const body = (await response.json()) as SearchResponse;
+        setTotal(body.total);
+        setResults((current) =>
+          offset === 0 ? body.results : [...current, ...body.results],
+        );
+        setSubmitted(term);
+        setStatus("loaded");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setStatus("error");
+      } finally {
+        setIsLoadingMore(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filterKey],
+  );
 
   // The full-text half of the one field, debounced alongside the catalogue's
   // own filter so a single keystroke costs two requests, not fourteen.
@@ -142,7 +171,7 @@ export function ArchiveBrowser() {
     if (!isSearchable) return;
     const timer = window.setTimeout(() => void runSearch(term, 0), DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [term, isSearchable, runSearch]);
+  }, [term, isSearchable, filterKey, runSearch]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -170,7 +199,15 @@ export function ArchiveBrowser() {
 
   return (
     <div className="flex min-h-0 flex-1">
-      <DocumentRail />
+      {/* Desktop Newspaper folder rail */}
+      <NewspaperRail
+        filters={filters}
+        onSelectPublication={setPublication}
+        onSelectYear={setYear}
+        onSelectDateRange={setDateRange}
+        onClearFilters={clearFilters}
+        className="rule-r hidden lg:flex"
+      />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-5 pb-12 sm:px-6 sm:py-7">
@@ -192,31 +229,67 @@ export function ArchiveBrowser() {
             role="search"
             className="mt-5"
           >
-            <div
-              className={cn(
-                "flex items-center gap-2 rounded-lg border bg-card px-3",
-                "transition-[border-color] duration-[120ms] ease-[var(--ease-crisp)]",
-                "focus-within:border-[var(--accent)]",
-              )}
-            >
-              <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-              <input
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                type="search"
-                inputMode="search"
-                enterKeyHint="search"
-                placeholder="Filter by publication, or search the pages…"
-                aria-label="Filter the catalogue and search the pages"
+            <div className="flex items-center gap-2">
+              <div
                 className={cn(
-                  "min-h-[44px] min-w-0 flex-1 bg-transparent outline-none",
-                  // 16px avoids iOS zoom-on-focus.
-                  "text-base sm:text-[0.9375rem]",
-                  "placeholder:text-muted-foreground",
+                  "flex min-h-[44px] flex-1 items-center gap-2 rounded-lg border bg-card px-3",
+                  "transition-[border-color] duration-[120ms] ease-[var(--ease-crisp)]",
+                  "focus-within:border-[var(--accent)]",
                 )}
-              />
+              >
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <input
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                  type="search"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  placeholder="Filter by publication, or search the pages…"
+                  aria-label="Filter the catalogue and search the pages"
+                  className={cn(
+                    "min-h-[44px] min-w-0 flex-1 bg-transparent outline-none",
+                    // 16px avoids iOS zoom-on-focus.
+                    "text-base sm:text-[0.9375rem]",
+                    "placeholder:text-muted-foreground",
+                  )}
+                />
+              </div>
+
+              {/* Mobile Drawer trigger button */}
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Filter newspapers"
+                className={cn(
+                  "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg border bg-card px-3 text-xs text-foreground lg:hidden",
+                  "transition-colors duration-[120ms] ease-[var(--ease-crisp)] hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+                  hasActiveFilters(filters) && "border-[var(--accent)] text-[var(--accent)] font-medium",
+                )}
+              >
+                <Folder className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Newspapers</span>
+              </button>
             </div>
+
+            {/* Active removable filter chips below the search bar */}
+            <ActiveFilterChips
+              filters={filters}
+              onRemovePublication={removePublication}
+              onClearDateRange={() => setDateRange(null, null)}
+              onClearAll={clearFilters}
+            />
           </form>
+
+          {/* Mobile Sheet drawer */}
+          <NewspaperDrawer
+            open={isDrawerOpen}
+            onOpenChange={setDrawerOpen}
+            filters={filters}
+            onSelectPublication={setPublication}
+            onSelectYear={setYear}
+            onSelectDateRange={setDateRange}
+            onClearFilters={clearFilters}
+          />
 
           <div className="mt-7">
             <DocumentCatalogue
@@ -228,6 +301,8 @@ export function ArchiveBrowser() {
               isLoadingMore={catalogue.isLoadingMore}
               hasMore={catalogue.hasMore}
               onLoadMore={catalogue.loadMore}
+              filters={filters}
+              onClearFilters={clearFilters}
             />
           </div>
 

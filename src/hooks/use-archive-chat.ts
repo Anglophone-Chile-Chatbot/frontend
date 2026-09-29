@@ -27,8 +27,11 @@ import type { ChatRequestBody, ChatSource } from "@/lib/api/types";
  * alongside ids so the transcript can name the scope without a second lookup.
  */
 export interface ChatScope {
-  ids: string[];
+  ids?: string[];
   labels: string[];
+  publications?: string[];
+  date_from?: string;
+  date_to?: string;
 }
 
 export interface ChatTurn {
@@ -118,10 +121,15 @@ export function useArchiveChat(): UseArchiveChat {
       abortRef.current = controller;
 
       try {
-        // The key is omitted entirely when unscoped, so a corpus-wide request
-        // is byte-identical to what it was before scoping existed.
         const payload: ChatRequestBody = { message: trimmed };
-        if (scope) payload.document_ids = scope.ids;
+        if (scope) {
+          if (scope.ids && scope.ids.length > 0) payload.document_ids = scope.ids;
+          if (scope.publications && scope.publications.length > 0) {
+            payload.publications = scope.publications;
+          }
+          if (scope.date_from) payload.date_from = scope.date_from;
+          if (scope.date_to) payload.date_to = scope.date_to;
+        }
 
         const response = await fetch("/api/chat", {
           method: "POST",

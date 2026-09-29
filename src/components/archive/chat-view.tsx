@@ -3,7 +3,9 @@
 import { useCallback, useState } from "react";
 
 import { useArchiveChat } from "@/hooks/use-archive-chat";
+import { useArchiveFilters } from "@/hooks/use-archive-filters";
 import type { ChatSource, DocumentSummary } from "@/lib/api/types";
+import { formatScopeLabel, hasActiveFilters } from "@/lib/archive-filters";
 
 import { ChatEmptyState } from "./chat-empty-state";
 import { Composer } from "./composer";
@@ -27,10 +29,14 @@ import { Transcript } from "./transcript";
  */
 export function ChatView() {
   const { turns, isBusy, ask, stop, reset } = useArchiveChat();
+  const { filters, clearFilters } = useArchiveFilters();
   const [active, setActive] = useState<ChatSource | null>(null);
   const [activeTerms, setActiveTerms] = useState<string[]>([]);
   const [scope, setScope] = useState<DocumentSummary[]>([]);
   const [isPickerOpen, setPickerOpen] = useState(false);
+
+  const hasFilters = hasActiveFilters(filters);
+  const filterScopeLabel = hasFilters ? formatScopeLabel(filters) : null;
 
   const openSource = useCallback((source: ChatSource, terms: string[]) => {
     setActive(source);
@@ -49,17 +55,24 @@ export function ChatView() {
   // Every question carries the scope in force when it was asked, so the
   // transcript stays truthful after the scope changes.
   const askScoped = useCallback(
-    (question: string) =>
-      ask(
-        question,
-        scope.length > 0
-          ? {
-              ids: scope.map((doc) => doc.document_id),
-              labels: scope.map((doc) => doc.publication ?? doc.title),
-            }
-          : null,
-      ),
-    [ask, scope],
+    (question: string) => {
+      if (scope.length > 0) {
+        return ask(question, {
+          ids: scope.map((doc) => doc.document_id),
+          labels: scope.map((doc) => doc.publication ?? doc.title),
+        });
+      }
+      if (hasFilters) {
+        return ask(question, {
+          publications: filters.publications.length > 0 ? filters.publications : undefined,
+          date_from: filters.dateFrom ?? undefined,
+          date_to: filters.dateTo ?? undefined,
+          labels: [formatScopeLabel(filters)],
+        });
+      }
+      return ask(question, null);
+    },
+    [ask, scope, hasFilters, filters],
   );
 
   const isEmpty = turns.length === 0;
@@ -96,8 +109,12 @@ export function ChatView() {
         <div className="rule-t bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm shrink-0">
           <ScopeBar
             selected={scope}
+            filterScopeLabel={filterScopeLabel}
             onOpen={() => setPickerOpen(true)}
-            onClear={() => setScope([])}
+            onClear={() => {
+              setScope([]);
+              if (hasFilters) clearFilters();
+            }}
             // Scope must not change mid-answer: the turn in flight was
             // already retrieved under the old scope, so switching would
             // mislabel it.
