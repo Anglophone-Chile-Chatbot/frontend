@@ -1,4 +1,5 @@
 import { backendBaseUrl } from "@/lib/api/backend";
+import { isIsoDate } from "@/lib/archive-filters";
 import { MAX_SCOPE_DOCUMENTS, type ChatRequestBody } from "@/lib/api/types";
 import { MAX_PROMPT_CHARS, sanitizeMessage } from "@/lib/validation";
 
@@ -150,7 +151,7 @@ function readPublications(body: unknown): string[] | undefined {
 function readDate(body: unknown, key: string): string | undefined {
   if (typeof body !== "object" || body === null) return undefined;
   const raw = (body as Record<string, unknown>)[key];
-  if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (typeof raw === "string" && isIsoDate(raw)) return raw;
   return undefined;
 }
 

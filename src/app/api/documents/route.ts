@@ -1,4 +1,5 @@
 import { BACKEND_TIMEOUT_MS, backendBaseUrl } from "@/lib/api/backend";
+import { isIsoDate } from "@/lib/archive-filters";
 import { sanitizeMessage } from "@/lib/validation";
 
 /**
@@ -42,12 +43,12 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const dateFrom = params.get("date_from") ?? params.get("from");
-  if (dateFrom && /^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+  if (dateFrom && isIsoDate(dateFrom)) {
     upstreamUrl.searchParams.set("date_from", dateFrom);
   }
 
   const dateTo = params.get("date_to") ?? params.get("to");
-  if (dateTo && /^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+  if (dateTo && isIsoDate(dateTo)) {
     upstreamUrl.searchParams.set("date_to", dateTo);
   }
 

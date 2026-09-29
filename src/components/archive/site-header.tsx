@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
+import { parseFilterParams, serializeFilterParams } from "@/lib/archive-filters";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,7 +29,31 @@ const NAV = [
   { href: "/archive", label: "Browse" },
 ] as const;
 
+/**
+ * The newspaper and date filter, carried across Ask and Browse. The filter
+ * lives in the URL and is chosen on Browse, so a plain "/" link dropped it and
+ * the chat silently went back to the whole archive.
+ */
+function HeaderWithFilters() {
+  const params = useSearchParams();
+  const query = serializeFilterParams(
+    parseFilterParams(params),
+    new URLSearchParams(),
+  ).toString();
+  return <HeaderView query={query} />;
+}
+
 export function SiteHeader() {
+  // `useSearchParams` needs a Suspense boundary for static prerendering; the
+  // fallback is the same header without the carried filter.
+  return (
+    <Suspense fallback={<HeaderView query="" />}>
+      <HeaderWithFilters />
+    </Suspense>
+  );
+}
+
+function HeaderView({ query }: { query: string }) {
   const pathname = usePathname();
 
   return (
@@ -54,7 +80,7 @@ export function SiteHeader() {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={query ? `${item.href}?${query}` : item.href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   // 44px, not 40: CLAUDE.md's tap-target floor. Fits the

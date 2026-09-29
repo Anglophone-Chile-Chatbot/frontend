@@ -67,8 +67,8 @@ export function ArchiveBrowser() {
   const {
     filters,
     setPublication,
-    setYear,
     setDateRange,
+    selectPublicationDates,
     clearFilters,
     removePublication,
   } = useArchiveFilters();
@@ -203,8 +203,8 @@ export function ArchiveBrowser() {
       <NewspaperRail
         filters={filters}
         onSelectPublication={setPublication}
-        onSelectYear={setYear}
         onSelectDateRange={setDateRange}
+        onSelectPublicationDates={selectPublicationDates}
         onClearFilters={clearFilters}
         className="rule-r hidden lg:flex"
       />
@@ -286,8 +286,8 @@ export function ArchiveBrowser() {
             onOpenChange={setDrawerOpen}
             filters={filters}
             onSelectPublication={setPublication}
-            onSelectYear={setYear}
             onSelectDateRange={setDateRange}
+            onSelectPublicationDates={selectPublicationDates}
             onClearFilters={clearFilters}
           />
 

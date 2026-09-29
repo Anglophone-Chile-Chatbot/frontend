@@ -3,11 +3,19 @@
 import { useEffect, useState } from "react";
 import type { DocumentFacetsResponse, PublicationFacet } from "@/lib/api/types";
 
+/** Facets are re-fetched once they are this old, so a long-lived tab sees new issues. */
+const FACETS_MAX_AGE_MS = 60_000;
+
 let cachedFacets: DocumentFacetsResponse | null = null;
+let cachedAt = 0;
+
+function isFresh(): boolean {
+  return cachedFacets !== null && Date.now() - cachedAt < FACETS_MAX_AGE_MS;
+}
 let inFlightPromise: Promise<DocumentFacetsResponse | null> | null = null;
 
 async function fetchFacets(): Promise<DocumentFacetsResponse | null> {
-  if (cachedFacets) return cachedFacets;
+  if (isFresh()) return cachedFacets;
   if (inFlightPromise) return inFlightPromise;
 
   inFlightPromise = fetch("/api/documents/facets")
@@ -17,6 +25,7 @@ async function fetchFacets(): Promise<DocumentFacetsResponse | null> {
       }
       const data: DocumentFacetsResponse = await res.json();
       cachedFacets = data;
+      cachedAt = Date.now();
       return data;
     })
     .catch((err) => {
@@ -39,7 +48,7 @@ export function useArchiveFacets() {
   useEffect(() => {
     let cancelled = false;
 
-    if (cachedFacets) {
+    if (isFresh()) {
       return;
     }
 

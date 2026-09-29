@@ -2,6 +2,21 @@ import type { ArchiveFilterState } from "@/lib/api/types";
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * True for a real calendar date in YYYY-MM-DD form. The pattern alone accepts
+ * "2020-99-99", which the backend rejects with a 422 and the catalogue then
+ * shows as "the archive service did not respond": a hand-edited URL should be
+ * ignored, not read as an outage.
+ */
+export function isIsoDate(value: string): boolean {
+  if (!DATE_REGEX.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return (
+    date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d
+  );
+}
+
 /** Safe regex escaping for any user/data strings. */
 export function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -28,11 +43,11 @@ export function parseFilterParams(
       }
     }
     const rawFrom = params.get("from") ?? params.get("date_from");
-    if (rawFrom && DATE_REGEX.test(rawFrom)) {
+    if (rawFrom && isIsoDate(rawFrom)) {
       dateFrom = rawFrom;
     }
     const rawTo = params.get("to") ?? params.get("date_to");
-    if (rawTo && DATE_REGEX.test(rawTo)) {
+    if (rawTo && isIsoDate(rawTo)) {
       dateTo = rawTo;
     }
   } else {
@@ -50,12 +65,12 @@ export function parseFilterParams(
     }
 
     const fromVal = params.from ?? params.date_from;
-    if (typeof fromVal === "string" && DATE_REGEX.test(fromVal)) {
+    if (typeof fromVal === "string" && isIsoDate(fromVal)) {
       dateFrom = fromVal;
     }
 
     const toVal = params.to ?? params.date_to;
-    if (typeof toVal === "string" && DATE_REGEX.test(toVal)) {
+    if (typeof toVal === "string" && isIsoDate(toVal)) {
       dateTo = toVal;
     }
   }

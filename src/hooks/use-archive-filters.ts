@@ -69,6 +69,19 @@ export function useArchiveFilters() {
     [filters, updateUrl],
   );
 
+  /**
+   * Choose a newspaper and its dates in ONE URL update. Two separate calls
+   * (select the paper, then the year) each build from the same stale
+   * `searchParams`, so the second `router.replace` overwrote the first and the
+   * newspaper was lost. One interaction, one state change.
+   */
+  const selectPublicationDates = useCallback(
+    (pub: string, from: string | null, to: string | null) => {
+      updateUrl({ publications: [pub], dateFrom: from, dateTo: to });
+    },
+    [updateUrl],
+  );
+
   const setYear = useCallback(
     (year: number | null) => {
       if (year === null) {
@@ -114,6 +127,7 @@ export function useArchiveFilters() {
     togglePublication,
     setDateRange,
     setYear,
+    selectPublicationDates,
     clearFilters,
     removePublication,
     clearDates,

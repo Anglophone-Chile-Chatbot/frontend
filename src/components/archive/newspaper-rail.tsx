@@ -27,8 +27,9 @@ import { cn } from "@/lib/utils";
 interface NewspaperRailProps {
   filters: ArchiveFilterState;
   onSelectPublication: (pub: string | null) => void;
-  onSelectYear: (year: number | null) => void;
   onSelectDateRange: (from: string | null, to: string | null) => void;
+  /** Newspaper and dates chosen together, as one URL update. */
+  onSelectPublicationDates: (pub: string, from: string | null, to: string | null) => void;
   onClearFilters: () => void;
   className?: string;
   onItemSelect?: () => void;
@@ -44,8 +45,8 @@ interface NewspaperRailProps {
 export function NewspaperRail({
   filters,
   onSelectPublication,
-  onSelectYear,
   onSelectDateRange,
+  onSelectPublicationDates,
   onClearFilters,
   className,
   onItemSelect,
@@ -92,17 +93,25 @@ export function NewspaperRail({
           items[prevIndex]?.focus();
           break;
         }
-        case "ArrowRight": {
-          if (activeElement && activeElement.getAttribute("aria-expanded") === "false") {
+        case "ArrowRight":
+        case "ArrowLeft": {
+          // Expand or collapse through the folder's own chevron, which is
+          // where the toggle handler lives. Clicking the <li> did nothing.
+          const want = e.key === "ArrowRight" ? "false" : "true";
+          if (activeElement?.getAttribute("aria-expanded") === want) {
             e.preventDefault();
-            activeElement.click();
+            activeElement.querySelector<HTMLElement>(":scope > [data-tree-row] button")?.click();
           }
           break;
         }
-        case "ArrowLeft": {
-          if (activeElement && activeElement.getAttribute("aria-expanded") === "true") {
+        case "Enter":
+        case " ": {
+          // Select the focused row. Only when the <li> itself has focus, so
+          // Enter on a year chip or the date form still does its own thing.
+          if (activeElement?.getAttribute("role") === "treeitem" && e.target === activeElement) {
             e.preventDefault();
-            activeElement.click();
+            const row = activeElement.querySelector<HTMLElement>(":scope > [data-tree-row]");
+            (row ?? activeElement).click();
           }
           break;
         }
@@ -210,10 +219,11 @@ export function NewspaperRail({
               tabIndex={isPubSelected ? 0 : -1}
               aria-selected={isPubSelected}
               aria-expanded={isExpanded}
-              className="flex flex-col"
+              className="flex flex-col focus-visible:outline-none [&:focus-visible>[data-tree-row]]:ring-1 [&:focus-visible>[data-tree-row]]:ring-[var(--accent)]"
             >
               {/* Folder Row */}
               <div
+                data-tree-row
                 className={cn(
                   "group flex min-h-[44px] cursor-pointer items-center justify-between gap-1.5 rounded-md px-2 py-2",
                   "text-[0.8125rem] transition-colors duration-[140ms] ease-[var(--ease-crisp)]",
@@ -243,7 +253,7 @@ export function NewspaperRail({
                       e.stopPropagation();
                       toggleExpanded(pub.publication, isExpanded);
                     }}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5"
+                    className="-my-2 flex h-11 w-8 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-black/5 hover:text-foreground dark:hover:bg-white/5"
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-3.5 w-3.5" />
@@ -304,18 +314,19 @@ export function NewspaperRail({
                           key={yearFacet.year}
                           type="button"
                           onClick={() => {
-                            if (!isPubSelected) {
-                              onSelectPublication(pub.publication);
-                            }
                             if (isYearSelected) {
-                              onSelectDateRange(null, null);
+                              onSelectPublicationDates(pub.publication, null, null);
                             } else {
-                              onSelectYear(yearFacet.year);
+                              onSelectPublicationDates(
+                                pub.publication,
+                                `${yearStr}-01-01`,
+                                `${yearStr}-12-31`,
+                              );
                             }
                             onItemSelect?.();
                           }}
                           className={cn(
-                            "flex min-h-[36px] items-center gap-1 rounded-md border px-2 py-1 text-xs",
+                            "flex min-h-[44px] items-center gap-1 rounded-md border px-2.5 py-1 text-xs",
                             "transition-colors duration-[140ms] ease-[var(--ease-crisp)]",
                             isYearSelected
                               ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)] font-medium"
@@ -343,7 +354,7 @@ export function NewspaperRail({
                     <button
                       type="button"
                       onClick={() => toggleCustomRange(pub.publication)}
-                      className="flex min-h-[32px] items-center gap-1.5 text-[0.75rem] text-muted-foreground hover:text-foreground"
+                      className="flex min-h-[44px] items-center gap-1.5 text-[0.75rem] text-muted-foreground hover:text-foreground"
                     >
                       <Calendar className="h-3 w-3" />
                       <span>{isRangeOpen ? "Hide custom dates" : "Custom dates…"}</span>
@@ -353,8 +364,7 @@ export function NewspaperRail({
                       <CustomDateRangePicker
                         filters={filters}
                         onApply={(from, to) => {
-                          if (!isPubSelected) onSelectPublication(pub.publication);
-                          onSelectDateRange(from, to);
+                          onSelectPublicationDates(pub.publication, from, to);
                           onItemSelect?.();
                         }}
                         onClear={() => {
@@ -422,7 +432,7 @@ function CustomDateRangePicker({
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          className="min-h-[38px] rounded border bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+          className="min-h-[44px] rounded border bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
         />
       </div>
 
@@ -435,14 +445,14 @@ function CustomDateRangePicker({
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          className="min-h-[38px] rounded border bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+          className="min-h-[44px] rounded border bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
         />
       </div>
 
       <div className="flex items-center gap-1.5 pt-1">
         <button
           type="submit"
-          className="flex min-h-[36px] flex-1 items-center justify-center rounded bg-primary px-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          className="flex min-h-[44px] flex-1 items-center justify-center rounded bg-primary px-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           Apply
         </button>
@@ -454,7 +464,7 @@ function CustomDateRangePicker({
               setTo("");
               onClear();
             }}
-            className="flex min-h-[36px] items-center justify-center rounded border px-2 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="flex min-h-[44px] items-center justify-center rounded border px-2.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             Clear
           </button>
@@ -493,16 +503,16 @@ export function NewspaperDrawer({
   onOpenChange,
   filters,
   onSelectPublication,
-  onSelectYear,
   onSelectDateRange,
+  onSelectPublicationDates,
   onClearFilters,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   filters: ArchiveFilterState;
   onSelectPublication: (pub: string | null) => void;
-  onSelectYear: (year: number | null) => void;
   onSelectDateRange: (from: string | null, to: string | null) => void;
+  onSelectPublicationDates: (pub: string, from: string | null, to: string | null) => void;
   onClearFilters: () => void;
 }) {
   return (
@@ -524,8 +534,8 @@ export function NewspaperDrawer({
           <NewspaperRail
             filters={filters}
             onSelectPublication={onSelectPublication}
-            onSelectYear={onSelectYear}
             onSelectDateRange={onSelectDateRange}
+            onSelectPublicationDates={onSelectPublicationDates}
             onClearFilters={onClearFilters}
             className="w-full border-r-0 bg-transparent"
             onItemSelect={() => onOpenChange(false)}
@@ -557,14 +567,14 @@ export function ActiveFilterChips({
       {filters.publications.map((pub) => (
         <span
           key={pub}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground shadow-xs"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card pl-3 pr-1 py-1 text-xs text-foreground shadow-xs"
         >
           <span className="font-heading text-[0.8125rem]">{pub}</span>
           <button
             type="button"
             onClick={() => onRemovePublication(pub)}
             aria-label={`Remove ${pub} filter`}
-            className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
           >
             <X className="h-3 w-3" />
           </button>
@@ -572,14 +582,14 @@ export function ActiveFilterChips({
       ))}
 
       {dateLabel && (
-        <span className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs text-foreground shadow-xs">
+        <span className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-card pl-3 pr-1 py-1 text-xs text-foreground shadow-xs">
           <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="numeric">{dateLabel}</span>
           <button
             type="button"
             onClick={onClearDateRange}
             aria-label="Remove date filter"
-            className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
           >
             <X className="h-3 w-3" />
           </button>
@@ -590,7 +600,7 @@ export function ActiveFilterChips({
         <button
           type="button"
           onClick={onClearAll}
-          className="flex min-h-[36px] items-center px-2 text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
+          className="flex min-h-[44px] items-center px-2 text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
         >
           Clear all
         </button>
