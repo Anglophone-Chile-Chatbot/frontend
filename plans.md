@@ -17,7 +17,7 @@ read that before ever re-raising this.
 `npx vercel --prod --yes` still works and is harmless, but it is **not required**. Do not tell
 Shakib the site needs a manual deploy.
 
-Prod alias: `https://frontend-theta-bay-62.vercel.app`. **Verify on that URL, not localhost**, before
+Prod alias: `https://frontend-gamma-dun-82.vercel.app`. **To check a deploy: one `gh` commit-status call, then one `curl` of a new route here. Never a wait loop.** **Verify on that URL, not localhost**, before
 calling frontend work shipped — and note a `curl` 403 there is bot mitigation, not a broken deploy
 (see the traps in the DEPLOYMENT section).
 
@@ -788,7 +788,7 @@ Do not batch them — A1 alone is a visible win.
 
       **Deployed and verified in production on `frontend-gamma-dun-82`:** the catalogue is in the
       served HTML, `/api/documents` returns both `first_page_id`s, and the full path resolves to
-      page 1 of 16 with a `image/webp` scan. **`frontend-theta-bay-62` was still serving the older
+      page 1 of 16 with a `image/webp` scan. **`frontend-gamma-dun-82` was still serving the older
       build at the time of checking** — worth a glance at which host is canonical, since the plans
       have quoted both as "the deployed site" before. Separately, `npx vercel ls` in this repo
       resolves to a *different* project (`khandokar-shakibs-projects-7b70d891`, newest deploy 22h
@@ -1192,7 +1192,7 @@ command that would have refuted it in ten seconds.
    of the retracted entry, and misreading them is probably what produced the false conclusion.
 
 **Two traps when verifying a deployment:**
-- **`curl` gets HTTP 403 "Vercel Security Checkpoint" on `frontend-theta-bay-62.vercel.app`; a real
+- **`curl` gets HTTP 403 "Vercel Security Checkpoint" on `frontend-gamma-dun-82.vercel.app`; a real
   browser passes it transparently.** That is bot mitigation (`x-vercel-mitigated: challenge`), not
   deployment protection, and it is not caused by deploying. **Do not read a curl 403 there as the
   site being down** — check in a browser first.
