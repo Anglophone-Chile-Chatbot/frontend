@@ -10,7 +10,7 @@ import type { PageDetail, ViewerSource } from "@/lib/api/types";
  * Shared by the mobile sheet and desktop docked source viewers so the two
  * can't drift — both are thin renderers over this one fetch.
  */
-export function useSourcePage(source: ViewerSource | null) {
+export function useSourcePage(source: ViewerSource | null, openNonce?: number) {
   const pageId = source?.page_id ?? null;
   const [page, setPage] = useState<PageDetail | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">(
@@ -28,6 +28,15 @@ export function useSourcePage(source: ViewerSource | null) {
     setRenderedPageId(pageId);
     setPage(null);
     setStatus(pageId ? "loading" : "idle");
+    setTab("text");
+  }
+
+  // A new citation opened on the page that is already showing keeps the page
+  // (no refetch, no flash) but returns to the Text tab: the highlighted passage
+  // is what the reader just asked to see, and it is invisible on the scan.
+  const [renderedNonce, setRenderedNonce] = useState(openNonce);
+  if (openNonce !== renderedNonce) {
+    setRenderedNonce(openNonce);
     setTab("text");
   }
 

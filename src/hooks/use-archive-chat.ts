@@ -16,8 +16,10 @@ import type { ChatRequestBody, ChatSource } from "@/lib/api/types";
  * request. Reading the stream directly keeps sources first-class, which is
  * exactly what citation chips need.
  *
- * Phase 1 chat is stateless — nothing is persisted, and no history is sent
- * upstream. Turns are kept in memory only so the transcript renders.
+ * Phase 1 chat is stateless *server-side* — no history is sent upstream and the
+ * backend stores nothing. Turns live in memory here; the reader's own browser
+ * keeps a rolling copy (`use-session-persistence.ts`) so a navigation or a
+ * reload does not throw the conversation away, and `restore` puts it back.
  */
 
 /**
@@ -68,6 +70,8 @@ export interface UseArchiveChat {
   ask: (question: string, scope?: ChatScope | null) => Promise<void>;
   stop: () => void;
   reset: () => void;
+  /** Put back turns saved in the reader's browser. Ignored while one is streaming. */
+  restore: (turns: ChatTurn[]) => void;
 }
 
 const ERROR_COPY: Record<string, string> = {
@@ -226,7 +230,12 @@ export function useArchiveChat(): UseArchiveChat {
     setIsBusy(false);
   }, []);
 
-  return { turns, isBusy, ask, stop, reset };
+  const restore = useCallback((saved: ChatTurn[]) => {
+    if (abortRef.current) return;
+    setTurns(saved);
+  }, []);
+
+  return { turns, isBusy, ask, stop, reset, restore };
 }
 
 /** Pull the `code` out of a JSON error body, if there is one. */

@@ -47,6 +47,47 @@ code; APIs differ from training data. See AGENTS.md.
 
 ---
 
+## W7 — session survives, left rail collapses, scan zoom is smooth and remembered (DONE 2026-09-30)
+
+Asked for by Shakib 2026-09-30. Built and checked in a real browser at 1352px and 375px against the
+live backend through a tunnel; nothing here needed a model call.
+
+**Why "the session resets at weird times":** chat turns, scope and the open citation lived only in
+React state, and nothing was saved anywhere, so leaving the Ask page (the same-tab "Read the whole
+issue" link, Browse and back, a reload) wiped them.
+
+What now exists:
+- **"Read the whole issue" opens in a new tab.**
+- **Saved in the reader's own browser (`localStorage`, key `anglophone-chile:session:v1`).** Rolling
+  7-day window: each new question moves the deadline; opening the site does not. A live countdown
+  bar sits above the chat (counts minutes, then seconds in the last minute, turns red under 24h,
+  drains a thin bar), with a two-tap "Delete now". A browser that refuses to save says so instead of
+  showing a countdown to nothing. A turn still streaming when the page closed comes back as an honest
+  "cut off" error. The server stores nothing. CLAUDE.md and the Antigravity rules were reworded
+  ("server-side") in the same turn.
+- **Left rail collapses** to an icon strip (remembered, restored before first paint so it never
+  flashes open). Collapsing widens the right document pane too (26rem/32vw to 38rem/42vw; measured
+  416px to 568px at 1352px). Below `lg` the same content opens from a menu button in a left sheet.
+- **Scan viewer rebuilt as a fixed viewer** that fits the whole sheet in the pane with the controls
+  always in view (they used to sit below the fold). Pinch, double-tap (2.5x), trackpad/ctrl+wheel,
+  drag with momentum, a logarithmic zoom slider, +/- and Fit, keyboard (+ - 0 and arrows). Transform
+  is written straight to the element with the transition off during continuous input.
+- **Zoom and text scroll are remembered across Text and Scan**; they reset only for a different page
+  or a newly opened citation (including a second citation on the same page).
+- **Phone sheet:** swipe-down-to-dismiss grab bar; citation panel and issue-search viewers now mount
+  only one viewer at a time (the hidden one used to fetch the page twice).
+
+**A pre-existing bug found and fixed on the way:** the phone citation sheet was 8,804px tall on a
+long page (the sheet's own `data-[side=bottom]:h-auto` beat `h-[85dvh]`), so its header and tabs were
+off the top of the screen. It is now 85dvh.
+
+**Not verified, needs Shakib's hands:** how the pinch and drag *feel* on a real phone and trackpad.
+Playwright drove mouse wheel, double-click, drag, slider and keyboard and checked the resulting
+transforms; a real two-finger pinch was not exercised. Safari's trackpad pinch (no ctrl+wheel) is not
+handled. Two Ask tabs open at once: last saved wins.
+
+---
+
 ## CHUNK 2 — ✅ DONE 2026-08-29. The document reader exists.
 
 Shakib on the live site, 2026-08-28: *"no way to just click and see the document nor click and see

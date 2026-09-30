@@ -4,6 +4,7 @@ import { Folder, Loader2, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useArchiveFilters } from "@/hooks/use-archive-filters";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useCatalogue } from "@/hooks/use-catalogue";
 import type { SearchResponse, SearchResult, ViewerSource } from "@/lib/api/types";
 import { hasActiveFilters } from "@/lib/archive-filters";
@@ -94,7 +95,11 @@ export function ArchiveBrowser() {
   const [active, setActive] = useState<{
     source: ViewerSource;
     passage: string | null;
+    /** Distinct per open, so re-opening a result resets the remembered zoom. */
+    nonce: number;
   } | null>(null);
+  // One viewer at a time, so the hidden one never fetches the page twice.
+  const isDesktop = useMediaQuery("(min-width: 64rem)");
   const controllerRef = useRef<AbortController | null>(null);
 
   const filterKey = `${filters.publications.join(",")}|${filters.dateFrom ?? ""}|${filters.dateTo ?? ""}`;
@@ -193,6 +198,7 @@ export function ArchiveBrowser() {
         issue_date: result.issue_date,
       },
       passage: result.content,
+      nonce: Date.now(),
     });
   }, []);
 
@@ -366,16 +372,18 @@ export function ArchiveBrowser() {
       </div>
 
       <SourceViewer
-        source={active?.source ?? null}
+        source={isDesktop ? null : (active?.source ?? null)}
         passage={active?.passage ?? null}
+        openNonce={active?.nonce}
         query={submitted}
         onOpenChange={(open) => {
           if (!open) setActive(null);
         }}
       />
       <SourceViewerPanel
-        source={active?.source ?? null}
+        source={isDesktop ? (active?.source ?? null) : null}
         passage={active?.passage ?? null}
+        openNonce={active?.nonce}
         query={submitted}
         onClose={() => setActive(null)}
       />

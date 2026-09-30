@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { SiteHeader } from "@/components/archive/site-header";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { RAIL_BOOT_SCRIPT } from "@/lib/rail-state";
 
 import "./globals.css";
 
@@ -58,6 +59,11 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${playfairDisplay.variable} ${lora.variable} ${inter.variable} h-full antialiased`}
     >
+      <head>
+        {/* Restores the collapsed left rail before first paint, so a reader who
+            collapsed it never sees it flash open. See `lib/rail-state.ts`. */}
+        <script dangerouslySetInnerHTML={{ __html: RAIL_BOOT_SCRIPT }} />
+      </head>
       {/* `grain` lays the newsprint texture over the whole viewport.
           `h-dvh` + `overflow-hidden` make the shell own scrolling, so the
           composer stays put when a mobile keyboard opens. */}

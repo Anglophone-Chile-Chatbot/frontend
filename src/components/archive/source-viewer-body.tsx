@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, Image as ImageIcon, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   FigureGallery,
@@ -11,7 +11,7 @@ import {
 } from "@/components/archive/page-figures";
 import { Plate } from "@/components/archive/plate";
 import { TabRail } from "@/components/archive/tab-rail";
-import { ZoomableImage } from "@/components/archive/zoomable-image";
+import { ZoomableImage, type ScanView } from "@/components/archive/zoomable-image";
 import type { PageDetail, PageFigure } from "@/lib/api/types";
 import { parsePageBlocks, splicePageFigures, type PageBlock } from "@/lib/page-blocks";
 import { findPassage, type MatchKind } from "@/lib/passage-match";
@@ -25,15 +25,7 @@ import { cn } from "@/lib/utils";
  * from the same fetch (`useSourcePage`) — behaviour can't drift between the
  * two, only their surrounding chrome differs.
  */
-export function SourceViewerBody({
-  status,
-  page,
-  tab,
-  onTabChange,
-  passage,
-  terms,
-  showTabs = true,
-}: {
+interface SourceViewerBodyProps {
   status: "idle" | "loading" | "error";
   page: PageDetail | null;
   tab: "text" | "image";
@@ -51,13 +43,62 @@ export function SourceViewerBody({
    * because there is no outer row in either of those.
    */
   showTabs?: boolean;
-}) {
+  /**
+   * Changes each time a citation is opened. With the page id it decides when
+   * the remembered scan zoom and text scroll reset: a different page or a new
+   * citation starts fresh, nothing else does.
+   */
+  openNonce?: number;
+}
+
+export function SourceViewerBody(props: SourceViewerBodyProps) {
+  // Keyed by page and citation-open, so everything the body remembers about
+  // *where the reader is* — the zoom on the scan, how far the text is scrolled,
+  // an open figure — starts fresh for a different page or a new citation
+  // (including a second citation on the page already showing, which the page
+  // id alone would miss), and for nothing else. Flipping Text ⇄ Scan does not
+  // change the key, so it loses nothing.
+  return (
+    <SourceViewerBodyInner
+      key={`${props.page?.page_id ?? "none"}:${props.openNonce ?? 0}`}
+      {...props}
+    />
+  );
+}
+
+function SourceViewerBodyInner({
+  status,
+  page,
+  tab,
+  onTabChange,
+  passage,
+  terms,
+  showTabs = true,
+}: SourceViewerBodyProps) {
   // Which figure is open full-size. Held here rather than in either tab so the
   // scan overlay and the text gallery open the same viewer, and so switching
   // tabs behind an open figure cannot leave two of them mounted.
   const [zoomed, setZoomed] = useState<PageFigure | null>(null);
 
   const figures = page?.figures ?? [];
+
+  // Where the reader is on this page. Refs, not state: they change on every
+  // scroll and every pointer move and nothing needs to re-render for them.
+  const zoomViewRef = useRef<ScanView | null>(null);
+  const textScroll = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  /** Whether the reader has scrolled the text — read at render, so state. */
+  const [hasScrolled, setHasScrolled] = useState(false);
+
+  // Coming back to the Text tab: put the reader back where they were, rather
+  // than at the top (or re-centred on the highlight they had already scrolled
+  // away from). Skipped on first arrival, when there is nothing to restore.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (tab === "text" && el && textScroll.current !== null) {
+      el.scrollTop = textScroll.current;
+    }
+  }, [tab, page?.page_id]);
 
   // Close on page change: a figure id belongs to the page it came from, and a
   // stale one would keep an unrelated crop open over the new page. Reset during
@@ -75,7 +116,23 @@ export function SourceViewerBody({
       {showTabs && (
         <ViewerTabs tab={tab} onChange={onTabChange} hasImage={page?.has_image ?? false} />
       )}
-      <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-5">
+      <div
+        ref={scrollRef}
+        // Recorded only on the Text tab: swapping to the Scan tab shrinks this
+        // element's content and the browser resets its scroll to 0, which must
+        // not overwrite where the reader actually was.
+        onScroll={(event) => {
+          if (tab !== "text") return;
+          textScroll.current = event.currentTarget.scrollTop;
+          if (!hasScrolled) setHasScrolled(true);
+        }}
+        className={cn(
+          "relative min-h-0 flex-1 overscroll-contain px-4 sm:px-5",
+          // The scan is a fixed viewer that fits the pane (its own controls
+          // stay in view), so this stops being a scroller on that tab.
+          tab === "text" ? "overflow-y-auto pb-6" : "overflow-hidden pt-3 pb-2",
+        )}
+      >
         {status === "loading" && <ViewerLoading />}
         {status === "error" && <ViewerError />}
         {status === "idle" &&
@@ -92,6 +149,7 @@ export function SourceViewerBody({
                 terms={terms}
                 figures={figures}
                 onSelectFigure={setZoomed}
+                keepScroll={hasScrolled}
               />
               <FigureGallery
                 figures={figures.filter((figure) => figure.text_anchor === null)}
@@ -104,6 +162,7 @@ export function SourceViewerBody({
               hasImage={page.has_image}
               figures={figures}
               onSelectFigure={setZoomed}
+              zoomViewRef={zoomViewRef}
             />
           ))}
         {zoomed && <FigureLightbox figure={zoomed} onClose={() => setZoomed(null)} />}
@@ -178,12 +237,15 @@ function PageText({
   terms,
   figures,
   onSelectFigure,
+  keepScroll,
 }: {
   text: string | null;
   passage: string | null;
   terms?: string[];
   figures: PageFigure[];
   onSelectFigure: (figure: PageFigure) => void;
+  /** The reader has already scrolled here — do not re-centre on the highlight. */
+  keepScroll: boolean;
 }) {
   const markRef = useRef<HTMLElement>(null);
 
@@ -197,7 +259,11 @@ function PageText({
   const range = match ? { start: match.start, end: match.end } : null;
 
   useEffect(() => {
+    if (keepScroll) return;
     markRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
+    // `keepScroll` is read once per mount on purpose: it flips to true as soon
+    // as the reader scrolls, and re-running then would yank them back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match, blocks]);
 
   if (!text || text.trim().length === 0) {
@@ -516,11 +582,14 @@ function PageImage({
   hasImage,
   figures,
   onSelectFigure,
+  zoomViewRef,
 }: {
   pageId: string;
   hasImage: boolean;
   figures: PageFigure[];
   onSelectFigure: (figure: PageFigure) => void;
+  /** Where the reader left the zoom, kept across Text ⇄ Scan. */
+  zoomViewRef: React.RefObject<ScanView | null>;
 }) {
   // The overlay is only correct once the image has laid out; painting it against
   // a zero-height box first would flash the boxes in the wrong place. Reset
@@ -543,31 +612,35 @@ function PageImage({
   }
 
   return (
-    <div className="pt-4">
-      {/* The scan is the primary source, so it gets real magnification.
-          Measured live 2026-09-04: the stored sheet is 1630x2225 but was being
-          painted at 728px on desktop and 343px at 375px — 2.24x and 4.75x of
-          already-downloaded detail discarded, with no zoom control anywhere on
-          the page. A reader could see that print existed and could not read
-          it. `ZoomableImage` caps at 1:1 with the file, so the ceiling is the
-          scan's own resolution rather than an invented number. */}
+    <div className="flex h-full min-h-0 flex-col">
+      {/* The scan is the primary source, so it gets real magnification, and it
+          sits whole in the pane with its controls always in view. It was a
+          full-width image taller than the pane, with the zoom buttons below the
+          fold. `ZoomableImage` caps at 1:1 with the file, so the ceiling is the
+          scan's own resolution rather than an invented number, and `zoomViewRef`
+          keeps the zoom and pan when the reader flips to the text and back. */}
       <ZoomableImage
+        key={pageId}
         src={`/api/pages/${pageId}/image`}
         alt="Newspaper page scan"
-        className="animate-fade"
+        className="animate-fade h-auto flex-1"
+        readView={() => zoomViewRef.current}
+        onView={(view) => {
+          zoomViewRef.current = view;
+        }}
         onLoad={() => setLoaded(true)}
         overlay={
           loaded ? <FigureOverlay figures={figures} onSelect={onSelectFigure} /> : null
         }
       />
       {figures.length > 0 && (
-        <p className="mt-2 font-sans text-[0.6875rem] leading-relaxed text-muted-foreground">
+        <p className="mt-1 font-sans text-[0.6875rem] leading-snug text-muted-foreground">
           {figures.length === 1
-            ? "One plate was found on this page — tap the marked area to see it."
-            : `${figures.length} plates were found on this page — tap a marked area to see one.`}
+            ? "One plate on this page — tap the marked area."
+            : `${figures.length} plates on this page — tap a marked area.`}
           {/* Only explain the dashed style when one is actually on screen. */}
           {figures.some((figure) => !isTightBox(figure)) &&
-            " A dashed outline marks the region a figure belongs to rather than the image’s exact edges."}
+            " Dashed = the region a figure belongs to, not its exact edges."}
         </p>
       )}
     </div>

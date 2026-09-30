@@ -271,11 +271,11 @@ export function FigureLightbox({
           Close
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto py-3">
+      <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col py-3">
         <ZoomableImage
+          key={figure.figure_id}
           src={`/api/figures/${figure.figure_id}/image`}
           alt={`${figureLabel(figure)}, full size`}
-          className="w-full max-w-3xl"
         />
       </div>
     </div>

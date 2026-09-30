@@ -471,6 +471,98 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Ask-page columns. Widths are variables keyed off <html data-rail>, which the
+   layout sets before first paint, so a collapsed rail never flashes open.
+   Collapsing the left rail hands its width to the document pane on the right
+   as well as to the chat: that pane is the one that was too narrow to read.
+   This is the one deliberate width transition — a column has to change width
+   to give space away — kept short, and the reduce-motion rule below zeroes it.
+--------------------------------------------------------------------------- */
+:root {
+  --rail-w: 15rem;
+  --panel-w: min(26rem, 32vw);
+}
+:root[data-rail="collapsed"] {
+  --rail-w: 3.5rem;
+  --panel-w: min(38rem, 42vw);
+}
+.rail-col {
+  width: var(--rail-w);
+  transition: width 180ms var(--ease-crisp);
+}
+.panel-col {
+  width: var(--panel-w);
+  transition: width 180ms var(--ease-crisp);
+}
+
+/* Zoom slider. Native <input type=range> so it keeps keyboard, touch and
+   screen-reader behaviour; only the track and thumb are drawn. The 44px height
+   is the hit area, the visible track is 2px. */
+.zoom-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 44px;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  --pos: 0%;
+}
+.zoom-range::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--pos),
+    var(--rule-strong) var(--pos)
+  );
+}
+.zoom-range::-moz-range-track {
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--pos),
+    var(--rule-strong) var(--pos)
+  );
+}
+.zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -9px;
+  border-radius: 999px;
+  border: 2px solid var(--card);
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.zoom-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid var(--card);
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.zoom-range:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* App-like touch behaviour: no 300ms double-tap delay on controls, no grey
+   flash on tap. The scan viewer sets its own touch-action. */
+@media (pointer: coarse) {
+  button,
+  a,
+  [role="button"],
+  summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

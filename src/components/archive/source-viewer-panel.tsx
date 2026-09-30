@@ -25,6 +25,7 @@ export function SourceViewerPanel({
   passage,
   query,
   terms,
+  openNonce,
   onClose,
 }: {
   /** The page to show; `null` renders the panel's empty state. */
@@ -34,15 +35,19 @@ export function SourceViewerPanel({
   query?: string;
   /** Active search terms to highlight within the passage. */
   terms?: string[];
+  /** Changes on every citation open; resets the remembered zoom and scroll. */
+  openNonce?: number;
   onClose: () => void;
 }) {
-  const { page, status, tab, setTab } = useSourcePage(source);
+  const { page, status, tab, setTab } = useSourcePage(source, openNonce);
 
   const dateline = page ? formatIssueDate(page.issue_date) : null;
   const publication = page?.publication ?? source?.publication ?? null;
 
   return (
-    <aside className="rule-l bg-card-answer hidden w-[min(26rem,32vw)] shrink-0 flex-col lg:flex">
+    // Width is `--panel-w` (globals.css): wider when the left rail is
+    // collapsed, because this is the pane that was too narrow to read.
+    <aside className="panel-col rule-l bg-card-answer hidden shrink-0 flex-col overflow-hidden lg:flex">
       {source === null ? (
         <PanelEmptyState />
       ) : (
@@ -90,6 +95,7 @@ export function SourceViewerPanel({
             onTabChange={setTab}
             passage={passage ?? null}
             terms={terms}
+            openNonce={openNonce}
           />
         </>
       )}
