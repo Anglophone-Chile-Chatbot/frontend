@@ -326,9 +326,32 @@ export function ZoomableImage({
       }
     };
 
+    // Safari sends a trackpad (and iOS two-finger) pinch as its own
+    // `gesture*` events, with no ctrl+wheel at all, so the wheel path above
+    // never sees it. `scale` is relative to where the gesture began.
+    // WebKit only — other browsers never fire these, which is fine.
+    type WebKitGesture = Event & { scale: number; clientX: number; clientY: number };
+    let gestureStart = 1;
+    const onGestureStart = (event: Event) => {
+      event.preventDefault();
+      stopMomentum();
+      gestureStart = view.current.s;
+    };
+    const onGestureChange = (event: Event) => {
+      event.preventDefault();
+      const g = event as WebKitGesture;
+      zoomAround(gestureStart * g.scale, g.clientX, g.clientY, false);
+    };
+
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomAround, panBy]);
+    el.addEventListener("gesturestart", onGestureStart);
+    el.addEventListener("gesturechange", onGestureChange);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onGestureStart);
+      el.removeEventListener("gesturechange", onGestureChange);
+    };
+  }, [zoomAround, panBy, stopMomentum]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;

@@ -20,6 +20,14 @@ export interface SearchResult {
   rank: number;
 }
 
+/** Mirrors `IssueMatchCount` in `backend/app/schemas/search.py`. */
+export interface IssueMatchCount {
+  document_id: string;
+  publication: string | null;
+  issue_date: string | null;
+  matches: number;
+}
+
 /** Mirrors `SearchResponse` in `backend/app/schemas/search.py`. */
 export interface SearchResponse {
   query: string;
@@ -27,6 +35,8 @@ export interface SearchResponse {
   limit: number;
   offset: number;
   results: SearchResult[];
+  /** Matches split by issue, most first. First page only (`offset === 0`). */
+  issues?: IssueMatchCount[];
 }
 
 /**

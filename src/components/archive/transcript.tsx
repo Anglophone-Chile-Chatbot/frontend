@@ -1,11 +1,13 @@
 "use client";
 
 import { AlertCircle, Library, ChevronDown } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import type { ChatSource } from "@/lib/api/types";
 import { classifySourceUse, formatIssueDateShort } from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
+import { sweepTopic } from "@/lib/sweep-intent";
 import { cn } from "@/lib/utils";
 
 import { AnswerText } from "./answer-text";
@@ -133,6 +135,8 @@ function TurnBlock({
       {turn.status === "complete" &&
         turn.answer.length === 0 &&
         turn.sources.length === 0 && <NoMatchNote scoped={turn.scope !== null} />}
+
+      {turn.status === "complete" && <EveryMatchNote question={turn.question} />}
 
       {turn.sources.length > 0 && turn.status !== "error" && (
         <SourceList
@@ -347,5 +351,28 @@ function RelatedList({
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * Offered under an answer to a "find all mentions" question. Chat reads six
+ * passages, which is the wrong tool for completeness; the Browse page lists
+ * every match with counts. Says so plainly and links there with the search
+ * already typed.
+ */
+function EveryMatchNote({ question }: { question: string }) {
+  const topic = sweepTopic(question);
+  if (!topic) return null;
+  return (
+    <p className="measure text-[0.8125rem] leading-relaxed text-muted-foreground">
+      This answer draws on six passages at most.{" "}
+      <Link
+        href={`/archive?q=${encodeURIComponent(topic)}`}
+        className="inline-flex min-h-[44px] items-center font-medium text-[var(--accent)] underline-offset-2 hover:underline sm:min-h-0"
+      >
+        See every match for “{topic}”
+      </Link>{" "}
+      with counts by issue.
+    </p>
   );
 }

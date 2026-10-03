@@ -1,12 +1,18 @@
 "use client";
 
 import { Folder, Loader2, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useArchiveFilters } from "@/hooks/use-archive-filters";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useCatalogue } from "@/hooks/use-catalogue";
-import type { SearchResponse, SearchResult, ViewerSource } from "@/lib/api/types";
+import type {
+  IssueMatchCount,
+  SearchResponse,
+  SearchResult,
+  ViewerSource,
+} from "@/lib/api/types";
 import { hasActiveFilters } from "@/lib/archive-filters";
 import { formatIssueDateShort } from "@/lib/citations";
 import { flattenSnippetMarkdown } from "@/lib/snippet-text";
@@ -77,11 +83,18 @@ export function ArchiveBrowser() {
 
   const [isDrawerOpen, setDrawerOpen] = useState(false);
 
-  const catalogue = useCatalogue({ filters });
+  // A `?q=` link (from chat's "see every match") opens with the search already
+  // typed. Read once, during the first render, so there is no empty flash.
+  const searchParams = useSearchParams();
+  const catalogue = useCatalogue({
+    filters,
+    initialFilter: searchParams?.get("q") ?? "",
+  });
   const { filter, setFilter } = catalogue;
 
   const [results, setResults] = useState<SearchResult[]>([]);
   const [total, setTotal] = useState(0);
+  const [issues, setIssues] = useState<IssueMatchCount[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [submitted, setSubmitted] = useState("");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -132,6 +145,7 @@ export function ArchiveBrowser() {
 
         const body = (await response.json()) as SearchResponse;
         setTotal(body.total);
+        if (offset === 0) setIssues(body.issues ?? []);
         setResults((current) =>
           offset === 0 ? body.results : [...current, ...body.results],
         );
@@ -168,6 +182,7 @@ export function ArchiveBrowser() {
       // for the same reasoning spelled out.
       setResults([]);
       setTotal(0);
+      setIssues([]);
       setSubmitted("");
       setStatus("idle");
     }
@@ -331,9 +346,24 @@ export function ArchiveBrowser() {
                 {status === "loaded" && results.length > 0 && (
                   <>
                     <p className="eyebrow mb-3">
-                      {total} {total === 1 ? "passage" : "passages"} inside the
-                      pages
+                      {total} {total === 1 ? "passage" : "passages"}
+                      {issues.length > 0 &&
+                        ` across ${issues.length} ${issues.length === 1 ? "issue" : "issues"}`}
                     </p>
+                    {issues.length > 1 && (
+                      <IssueBreakdown
+                        issues={issues}
+                        onPick={(issue) => {
+                          if (issue.publication) {
+                            selectPublicationDates(
+                              issue.publication,
+                              issue.issue_date,
+                              issue.issue_date,
+                            );
+                          }
+                        }}
+                      />
+                    )}
                     <ul className="flex flex-col">
                       {results.map((result) => (
                         <ResultRow
@@ -519,5 +549,61 @@ function ErrorNote() {
         The archive service did not respond. Try again in a moment.
       </p>
     </div>
+  );
+}
+
+/**
+ * Where the matches are, issue by issue. Each row narrows the search to that
+ * issue, so "all mentions" can be read newspaper by newspaper. The counts are
+ * the database's own, summing to the headline figure.
+ */
+function IssueBreakdown({
+  issues,
+  onPick,
+}: {
+  issues: IssueMatchCount[];
+  onPick: (issue: IssueMatchCount) => void;
+}) {
+  const peak = Math.max(...issues.map((issue) => issue.matches));
+  return (
+    <details className="group mb-4 rounded-md border bg-card">
+      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between px-3 text-[0.8125rem] text-muted-foreground">
+        <span>By issue</span>
+        <span aria-hidden className="transition-transform group-open:rotate-180">
+          ▾
+        </span>
+      </summary>
+      <ul className="rule-t flex flex-col">
+        {issues.map((issue) => (
+          <li key={issue.document_id}>
+            <button
+              type="button"
+              onClick={() => onPick(issue)}
+              className={cn(
+                "relative flex min-h-[44px] w-full items-center justify-between gap-3 px-3 text-left",
+                "text-[0.8125rem] transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
+                "hover:bg-secondary active:bg-secondary",
+              )}
+            >
+              <span className="min-w-0 truncate text-foreground">
+                {issue.publication ?? "Unknown paper"}
+                <span className="text-muted-foreground">
+                  {" · "}
+                  {formatIssueDateShort(issue.issue_date) ?? "undated"}
+                </span>
+              </span>
+              <span className="numeric shrink-0 tabular-nums text-muted-foreground">
+                {issue.matches}
+              </span>
+              <span
+                aria-hidden
+                className="absolute inset-x-3 bottom-0 h-[2px] origin-left bg-[var(--accent)] opacity-30"
+                style={{ transform: `scaleX(${issue.matches / peak})` }}
+              />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

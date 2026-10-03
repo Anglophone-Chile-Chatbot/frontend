@@ -25,6 +25,9 @@ import {
  *   opening the site would renew a session forever.
  * - **Nothing is written mid-stream** — except on the way out (tab hidden or
  *   closing), so a reload during an answer keeps the earlier turns.
+ *
+ * Two tabs: an idle tab follows a newer save from the other one; a tab with
+ * its own unsaved questions keeps them and the later save wins.
  */
 export interface SessionPersistence {
   /** Ms until the saved session is deleted; `null` when nothing is saved. */
@@ -149,6 +152,21 @@ export function useSessionPersistence({
   // The saved copy was deleted in another tab: follow it.
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
+      if (event.key === SESSION_KEY && event.newValue !== null) {
+        // Another tab saved a newer session. An idle tab (nothing new of its
+        // own) follows it, so two open tabs never drift apart. A tab with its
+        // own unsaved questions keeps them: that one saves next, and wins.
+        const { turns: current } = latest.current;
+        if (current.length > 0 && current !== baseline.current) return;
+        const saved = loadSession();
+        if (!saved) return;
+        baseline.current = saved.turns;
+        expiresAtRef.current = saved.expiresAt;
+        onRestoreRef.current(saved.turns, saved.scope);
+        setExpiresAt(saved.expiresAt);
+        setNow(Date.now());
+        return;
+      }
       if (event.key === SESSION_KEY && event.newValue === null) {
         expiresAtRef.current = null;
         baseline.current = null;

@@ -43,7 +43,7 @@ code; APIs differ from training data. See AGENTS.md.
 
 ## Open verification items (2026-09-29)
 
-- [ ] Look at the newspapers folder rail and filters on a real phone and on the live site after both deploys.
+- [ ] Look at the newspapers folder rail, filters, the "See every match" link and the By-issue list on a real phone and on the live site once the backend deploy carrying per-issue counts is up (2026-10-03: checked at 375px/1352px locally only).
 
 ---
 
@@ -83,8 +83,9 @@ off the top of the screen. It is now 85dvh.
 
 **Not verified, needs Shakib's hands:** how the pinch and drag *feel* on a real phone and trackpad.
 Playwright drove mouse wheel, double-click, drag, slider and keyboard and checked the resulting
-transforms; a real two-finger pinch was not exercised. Safari's trackpad pinch (no ctrl+wheel) is not
-handled. Two Ask tabs open at once: last saved wins.
+transforms; a real two-finger pinch was not exercised. Safari's trackpad pinch handler (gesture events)
+and idle-tab-follows-newer-session were added 2026-10-03 and are not exercised on real Safari / two real tabs.
+A tab with its own unsaved questions still wins over another tab (last saved wins).
 
 ---
 

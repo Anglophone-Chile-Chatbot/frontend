@@ -41,8 +41,12 @@ const DEBOUNCE_MS = 250;
 
 export type CatalogueStatus = "loading" | "loaded" | "error";
 
-export function useCatalogue(options?: { filters?: ArchiveFilterState }) {
-  const [filter, setFilter] = useState("");
+export function useCatalogue(options?: {
+  filters?: ArchiveFilterState;
+  /** Start with this text in the field, e.g. from a `?q=` link out of chat. */
+  initialFilter?: string;
+}) {
+  const [filter, setFilter] = useState(options?.initialFilter ?? "");
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<CatalogueStatus>("loading");
