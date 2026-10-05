@@ -74,10 +74,15 @@ export function DocumentFigures({
   return (
     <div className="px-4 pt-4 pb-6 sm:px-5">
       {shown.length > 0 && (
+        /* "Plate" is the period word, kept on purpose (W2/W3), so it is defined
+           where a reader first meets it, in words, not a hover tooltip that a
+           phone cannot show (W4b, 2026-10-05). */
         <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
+          Plates are the engravings, photographs and illustrations printed in the issue, numbered
+          by the archive rather than the paper.{" "}
           {shown.length === 1
-            ? "One plate was found in this issue."
-            : `${shown.length} plates were found across this issue.`}{" "}
+            ? "One was found in this issue."
+            : `${shown.length} were found across this issue.`}{" "}
           Tap one to see it full size, or open the page it was printed on.
         </p>
       )}

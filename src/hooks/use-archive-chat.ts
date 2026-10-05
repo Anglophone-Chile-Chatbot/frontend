@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { SseParser } from "@/lib/api/sse";
-import type { ChatRequestBody, ChatSource } from "@/lib/api/types";
+import type { ChatRequestBody, ChatSource, QuestionIntent } from "@/lib/api/types";
 
 /**
  * Chat state driven by the backend's own SSE protocol.
@@ -48,6 +48,13 @@ export interface ChatTurn {
   related: ChatSource[];
   /** Search terms used for retrieval, for highlighting. */
   terms: string[];
+  /**
+   * The backend's lookup/sweep verdict. Optional: turns saved in the browser
+   * before 2026-10-05 have none, and `null` means the rewrite did not run.
+   */
+  intent?: QuestionIntent | null;
+  /** The rewrite's subject terms, for the find-everything link. */
+  topics?: string[];
   status: "retrieving" | "streaming" | "complete" | "error";
   /** User-facing error copy, set only when `status === "error"`. */
   error?: string;
@@ -171,6 +178,8 @@ export function useArchiveChat(): UseArchiveChat {
                 sources: event.sources, 
                 related: event.related,
                 terms: event.terms,
+                intent: event.intent,
+                topics: event.topics,
                 status: "streaming" 
               });
             } else if (event.type === "delta") {

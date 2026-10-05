@@ -4,7 +4,7 @@ import { AlertCircle, Library, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import type { ChatSource } from "@/lib/api/types";
+import type { ChatSource, QuestionIntent } from "@/lib/api/types";
 import { classifySourceUse, formatIssueDateShort } from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
 import { sweepTopic } from "@/lib/sweep-intent";
@@ -136,7 +136,9 @@ function TurnBlock({
         turn.answer.length === 0 &&
         turn.sources.length === 0 && <NoMatchNote scoped={turn.scope !== null} />}
 
-      {turn.status === "complete" && <EveryMatchNote question={turn.question} />}
+      {turn.status === "complete" && (
+        <EveryMatchNote question={turn.question} intent={turn.intent} topics={turn.topics} />
+      )}
 
       {turn.sources.length > 0 && turn.status !== "error" && (
         <SourceList
@@ -358,10 +360,19 @@ function RelatedList({
  * Offered under an answer to a "find all mentions" question. Chat reads six
  * passages, which is the wrong tool for completeness; the Browse page lists
  * every match with counts. Says so plainly and links there with the search
- * already typed.
+ * already typed. The backend's verdict decides when it shows (see
+ * `lib/sweep-intent.ts`).
  */
-function EveryMatchNote({ question }: { question: string }) {
-  const topic = sweepTopic(question);
+function EveryMatchNote({
+  question,
+  intent,
+  topics,
+}: {
+  question: string;
+  intent?: QuestionIntent | null;
+  topics?: string[];
+}) {
+  const topic = sweepTopic(question, intent, topics);
   if (!topic) return null;
   return (
     <p className="measure text-[0.8125rem] leading-relaxed text-muted-foreground">

@@ -55,36 +55,19 @@ A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`
 
 1. **Research-assistant feedback.** He works through `TESTING.md`. Fix what he reports; keep `TESTING.md`
    current in the same turn as any change a reader would see (hard rule in CLAUDE.md).
-2. **"Find all", second half** (with backend CHUNK 22): show the junk filter's result in the Browse list once the
-   backend has it; replace the front-end phrase match (`lib/sweep-intent.ts`) with the backend's `intent` field.
-3. **W4b: one-line "what is a Plate" explainer** (below). Small.
-4. **W4c: blank or foxed plates** (below). Waits on a backend signal.
-5. **Small items:** the header wordmark sits off-centre next to the rail on desktop (noticed 2026-08-11);
+2. **"Find all", the rest** (with backend CHUNK 22): show the junk filter's result in the Browse list once the
+   backend has it. **Done 2026-10-05:** the "See every match" line now follows the backend's `intent` verdict
+   (sent in the chat `sources` frame with the rewrite's `topics`); `lib/sweep-intent.ts`'s phrase match is only the
+   fallback for when the rewrite did not run or for turns saved before the verdict existed. TESTING.md A6.
+3. **W4c: blank or foxed plates** (below). Waits on a backend signal. (W4b, the one-line "what is a Plate"
+   explainer, shipped 2026-10-05 as a permanent line atop the Plates gallery, not a once-per-session note: one
+   line costs nothing and needs no browser storage. TESTING.md C4.)
+4. **Small items:** the header wordmark sits off-centre next to the rail on desktop (noticed 2026-08-11);
    check it, fix if still true.
-6. **Later:** react-pdf is probably the wrong item (PDFs never reach the server) — drop unless the RA asks for
+5. **Later:** react-pdf is probably the wrong item (PDFs never reach the server) — drop unless the RA asks for
    it; Turnstile is blocked on having no Cloudflare; gate Vercel on CI only if a second contributor joins.
 
 ---
-
-### W4b — "Plates" needs a first-encounter explainer, not a rename
-
-W2/W3 already deliberately chose "Plate" as the period-correct term for an engraving and unified it
-everywhere (tab label, page-jump marks, scan grid marks, figure captions) — confirmed still true
-reading `plate.tsx`, `document-figures.tsx`, `document-scans.tsx` live. Renaming it would undo real,
-considered work and reintroduce the inconsistency W3 fixed. The actual problem is that the word is
-introduced with zero context: a first-time reader hits a tab labelled "Plates 20" with no definition
-anywhere on the page. NotebookLM's own pattern for this is a one-line descriptor directly under any
-non-obvious section label, not a tooltip that has to be discovered by hovering (hover has no mobile
-equivalent anyway, and this is a mobile-first product).
-
-Fix: add one small `text-muted-foreground` line directly under the `text|scan|plates` tab row, shown
-only when the Plates tab is active for the first time this session (a `sessionStorage`-backed
-"seen" flag, per-viewer, same category of convenience the design skill already treats as fair game for
-browser storage) — something like "Plates are the engravings, photographs and illustrations printed
-in this issue — the archive's own numbering, not the paper's." Same treatment applies to the
-`DocumentFigures` gallery's own intro line, which already exists (`"N plates were found across this
-issue"`) but could gain the same one-time definition on first visit rather than assuming the word is
-already understood.
 
 ### W4c — ghost/blank plates (real gap, confirmed, explicitly NOT fixed this pass)
 

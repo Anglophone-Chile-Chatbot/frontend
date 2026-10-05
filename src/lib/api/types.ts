@@ -90,6 +90,14 @@ export type ViewerSource = Omit<ChatSource, "page_number" | "content"> & {
 };
 
 /**
+ * The backend's verdict on a question (CHUNK 22): `"sweep"` when the reader
+ * asked for every mention, a list or a count, `"lookup"` otherwise. `null`
+ * when the backend's query rewrite did not run, in which case the frontend
+ * falls back to its own phrase match (`lib/sweep-intent.ts`).
+ */
+export type QuestionIntent = "lookup" | "sweep";
+
+/**
  * Server-Sent Event frames emitted by `POST /api/v1/chat`.
  *
  * Order is: one `sources`, then zero or more `delta`, then exactly one
@@ -101,6 +109,9 @@ export type ChatStreamEvent =
       sources: ChatSource[];
       related: ChatSource[];
       terms: string[];
+      intent: QuestionIntent | null;
+      /** The rewrite's subject terms; empty when it did not run. */
+      topics: string[];
     }
   | { type: "delta"; text: string }
   | { type: "done" }

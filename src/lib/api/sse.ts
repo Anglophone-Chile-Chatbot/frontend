@@ -90,6 +90,7 @@ function toEvent(name: string, data: unknown): ChatStreamEvent | null {
       const sources = payload.sources;
       const related = payload.related;
       const terms = payload.terms;
+      const topics = payload.topics;
       if (!Array.isArray(sources)) return null;
       
       const parsedSources = sources.filter(isChatSource);
@@ -97,12 +98,21 @@ function toEvent(name: string, data: unknown): ChatStreamEvent | null {
       const parsedTerms = Array.isArray(terms) 
         ? terms.filter((t): t is string => typeof t === "string")
         : [];
-        
-      return { 
-        type: "sources", 
+      const parsedTopics = Array.isArray(topics)
+        ? topics.filter((t): t is string => typeof t === "string")
+        : [];
+      // Anything but the two known verdicts (an older backend sends none)
+      // reads as "not known", so the phrase-match fallback decides.
+      const intent =
+        payload.intent === "sweep" || payload.intent === "lookup" ? payload.intent : null;
+
+      return {
+        type: "sources",
         sources: parsedSources,
         related: parsedRelated,
-        terms: parsedTerms
+        terms: parsedTerms,
+        intent,
+        topics: parsedTopics,
       };
     }
     case "delta": {

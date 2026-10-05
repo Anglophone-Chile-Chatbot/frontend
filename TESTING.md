@@ -1,7 +1,7 @@
 # Archive test checklist (for the research assistant)
 
 Site: https://frontend-gamma-dun-82.vercel.app
-Last updated: 2026-10-03. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
+Last updated: 2026-10-05. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
 
 **How to work.** Tick a box when the test is done. Under each test, write what you saw. Mark it **OK** or **PROBLEM**. For a problem, always give the exact question you typed, the newspaper, date and page, what you expected, and what happened. Note your device and browser once at the top.
 
@@ -45,6 +45,13 @@ Device and browser:
   - Works when: with the Herald chosen, every source is from the Herald. After clearing, sources come from several papers.
   - Notes:
 
+- [ ] **A6. When does "See every match" appear?** (10 min) **(changed 2026-10-05: the site now asks the AI, not a word list)**
+  1. Ask each of these and look under the answer: *find all mentions of cricket*, *how many times are epidemics mentioned?*, *which issues report on elections?*, *Horse racing: every report, please*.
+  2. Then ask: *Tell me about the mining industry*, *What did the papers say about the earthquake?*, *Who was the British consul?*
+  - Works when: the first four each show "This answer draws on six passages at most. See every match for …" with sensible search words. The last three show no such line.
+  - Write down: any question where the line appeared when it should not, or was missing when it should be there.
+  - Notes:
+
 ## B. Browse: finding every mention
 
 - [ ] **B1. "Find all": how clean is the list?** (laptop, 30 min). Known to contain some junk. We need to know how much.
@@ -84,6 +91,11 @@ Device and browser:
   1. Open a scan. Pinch (phone or trackpad), double-tap, drag, and use the slider.
   2. Switch to Text and back. Try **Read the whole issue**.
   - Works when: zoom is smooth and deep enough for small print, Text and Scan keep your zoom, and the whole issue opens in a new tab.
+  - Notes:
+
+- [ ] **C4. Is "Plates" explained?** (phone, 2 min) **(changed 2026-10-05: new one-line explanation)**
+  1. Open *The Star of Chile*, 3 December 1904, and tap the **Plates** tab.
+  - Works when: the first line says what a plate is (an engraving, photograph or illustration from the issue) before the count, and it reads clearly on a phone.
   - Notes:
 
 ## D. Phone, saving and everyday use
