@@ -1,4 +1,4 @@
-import type { ChatSource, ChatStreamEvent } from "./types";
+import type { ChatSource, ChatStreamEvent, ConversationState } from "./types";
 
 /**
  * Incremental parser for the backend's Server-Sent Event stream.
@@ -105,6 +105,12 @@ function toEvent(name: string, data: unknown): ChatStreamEvent | null {
       // reads as "not known", so the phrase-match fallback decides.
       const intent =
         payload.intent === "sweep" || payload.intent === "lookup" ? payload.intent : null;
+      const standaloneQuestion =
+        typeof payload.standalone_question === "string" &&
+        payload.standalone_question.length > 0
+          ? payload.standalone_question
+          : null;
+      const followUp = payload.follow_up === true;
 
       return {
         type: "sources",
@@ -113,11 +119,23 @@ function toEvent(name: string, data: unknown): ChatStreamEvent | null {
         terms: parsedTerms,
         intent,
         topics: parsedTopics,
+        standalone_question: standaloneQuestion,
+        follow_up: followUp,
       };
     }
     case "delta": {
       const text = payload.text;
       return typeof text === "string" ? { type: "delta", text } : null;
+    }
+    case "state": {
+      const state = payload.state;
+      if (typeof state !== "object" || state === null || Array.isArray(state)) {
+        return null;
+      }
+      return {
+        type: "state",
+        state: state as ConversationState,
+      };
     }
     case "done":
       return { type: "done" };

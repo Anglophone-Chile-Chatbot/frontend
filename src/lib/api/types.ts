@@ -98,10 +98,28 @@ export type ViewerSource = Omit<ChatSource, "page_number" | "content"> & {
 export type QuestionIntent = "lookup" | "sweep";
 
 /**
+ * Opaque compact conversation state emitted by the backend (`state` SSE
+ * event) and echoed back untouched on follow-up requests (CHUNK 25 / W8).
+ */
+export type ConversationState = Record<string, unknown>;
+
+/** One earlier completed turn sent in `ChatHistory.turns`. */
+export interface ChatHistoryTurn {
+  question: string;
+  standalone: string;
+}
+
+/** Compact conversation history sent with follow-up chat requests. */
+export interface ChatHistory {
+  state?: ConversationState | null;
+  turns: ChatHistoryTurn[];
+}
+
+/**
  * Server-Sent Event frames emitted by `POST /api/v1/chat`.
  *
- * Order is: one `sources`, then zero or more `delta`, then exactly one
- * terminator (`done`, or `error` if generation failed mid-stream).
+ * Order is: one `sources`, then zero or more `delta`, optional `state`, then
+ * exactly one terminator (`done`, or `error` if generation failed mid-stream).
  */
 export type ChatStreamEvent =
   | {
@@ -112,8 +130,13 @@ export type ChatStreamEvent =
       intent: QuestionIntent | null;
       /** The rewrite's subject terms; empty when it did not run. */
       topics: string[];
+      /** The question as the server understood it; null when omitted by an older backend. */
+      standalone_question: string | null;
+      /** True when the server treated this question as a follow-up to earlier turns. */
+      follow_up: boolean;
     }
   | { type: "delta"; text: string }
+  | { type: "state"; state: ConversationState }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -235,6 +258,7 @@ export interface ChatRequestBody {
   date_from?: string | null;
   date_to?: string | null;
   undated?: boolean;
+  history?: ChatHistory;
 }
 
 /** An issue count for one year within a publication. */

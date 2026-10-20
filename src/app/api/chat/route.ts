@@ -1,6 +1,12 @@
 import { backendBaseUrl } from "@/lib/api/backend";
 import { isIsoDate } from "@/lib/archive-filters";
-import { MAX_SCOPE_DOCUMENTS, type ChatRequestBody } from "@/lib/api/types";
+import {
+  MAX_SCOPE_DOCUMENTS,
+  type ChatHistory,
+  type ChatHistoryTurn,
+  type ChatRequestBody,
+  type ConversationState,
+} from "@/lib/api/types";
 import { MAX_PROMPT_CHARS, sanitizeMessage } from "@/lib/validation";
 
 /**
@@ -58,6 +64,7 @@ export async function POST(request: Request): Promise<Response> {
   const publications = readPublications(body);
   const dateFrom = readDate(body, "date_from");
   const dateTo = readDate(body, "date_to");
+  const history = readHistory(body);
 
   // Absent means corpus-wide. The keys are omitted rather than sent as null so
   // the unscoped request body is byte-identical to what it was before scoping
@@ -70,6 +77,7 @@ export async function POST(request: Request): Promise<Response> {
   if (dateFrom !== undefined) payload.date_from = dateFrom;
   if (dateTo !== undefined) payload.date_to = dateTo;
   if ((body as Record<string, unknown> | null)?.undated === true) payload.undated = true;
+  if (history !== undefined) payload.history = history;
 
   let upstream: Response;
   try {
@@ -87,6 +95,26 @@ export async function POST(request: Request): Promise<Response> {
       "BACKEND_UNREACHABLE",
       502,
     );
+  }
+
+  // 429 (per-minute or daily AI limit) and 503 (the AI spend counter is
+  // down) carry a message the reader should see, ending "search still works".
+  if (upstream.status === 429 || upstream.status === 503) {
+    try {
+      const errBody: unknown = await upstream.json();
+      if (typeof errBody === "object" && errBody !== null && !Array.isArray(errBody)) {
+        return Response.json(errBody, { status: upstream.status });
+      }
+    } catch {
+      // Non-JSON body; fall through to the default payload below.
+    }
+    return upstream.status === 429
+      ? jsonError("Too many questions right now. Try again shortly.", "RATE_LIMITED", 429)
+      : jsonError(
+          "AI answers are unavailable right now; search still works.",
+          "SERVICE_UNAVAILABLE",
+          503,
+        );
   }
 
   if (!upstream.ok || !upstream.body) {
@@ -154,6 +182,55 @@ function readDate(body: unknown, key: string): string | undefined {
   const raw = (body as Record<string, unknown>)[key];
   if (typeof raw === "string" && isIsoDate(raw)) return raw;
   return undefined;
+}
+
+const MAX_HISTORY_TURNS = 3;
+const MAX_HISTORY_QUESTION_CHARS = 300;
+
+/**
+ * Light shape check for optional follow-up history (`history` field).
+ *
+ * Keeps at most 3 turns, trims question strings to 300 characters, and drops
+ * any unknown properties. If `history` is malformed, drops it silently rather
+ * than rejecting the request with 400 (the backend enforces the authoritative
+ * validation and caps).
+ */
+function readHistory(body: unknown): ChatHistory | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const raw = (body as Record<string, unknown>).history;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return undefined;
+  }
+
+  const record = raw as Record<string, unknown>;
+  if (!Array.isArray(record.turns)) return undefined;
+
+  let state: ConversationState | null = null;
+  if (record.state !== undefined && record.state !== null) {
+    if (typeof record.state !== "object" || Array.isArray(record.state)) {
+      return undefined;
+    }
+    state = record.state as ConversationState;
+  }
+
+  const turns: ChatHistoryTurn[] = [];
+  for (const item of record.turns.slice(-MAX_HISTORY_TURNS)) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      return undefined;
+    }
+    const turn = item as Record<string, unknown>;
+    if (typeof turn.question !== "string" || typeof turn.standalone !== "string") {
+      return undefined;
+    }
+    turns.push({
+      question: turn.question.slice(0, MAX_HISTORY_QUESTION_CHARS),
+      standalone: turn.standalone.slice(0, MAX_HISTORY_QUESTION_CHARS),
+    });
+  }
+
+  if (turns.length === 0 && state === null) return undefined;
+
+  return { state, turns };
 }
 
 function jsonError(error: string, code: string, status: number): Response {

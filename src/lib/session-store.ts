@@ -1,11 +1,13 @@
 import type { ChatTurn } from "@/hooks/use-archive-chat";
-import type { DocumentSummary } from "@/lib/api/types";
+import type { ConversationState, DocumentSummary } from "@/lib/api/types";
 
 /**
  * The reader's own saved conversation, kept in *their browser* and nowhere else.
  *
- * The server stays stateless: nothing here is sent upstream, and no history is
- * ever stored server-side. This only stops a same-tab navigation, a reload or a
+ * The server stays stateless: no history is ever stored server-side. Since
+ * CHUNK 25 / W8 a compact slice of it (the server's opaque state and the last
+ * 3 questions) travels with each follow-up, and is kept here so a reload keeps
+ * the conversation's memory too. This only stops a same-tab navigation, a reload or a
  * stray tap from throwing away the reader's work — before this, chat turns
  * lived in React state alone, so anything that unmounted the Ask page wiped
  * them (measured in code 2026-09-30: no `localStorage`, `sessionStorage` or
@@ -44,6 +46,10 @@ export interface SavedSession {
   expiresAt: number;
 }
 
+function isConversationState(value: unknown): value is ConversationState {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isTurn(value: unknown): value is ChatTurn {
   if (typeof value !== "object" || value === null) return false;
   const turn = value as Record<string, unknown>;
@@ -54,7 +60,10 @@ function isTurn(value: unknown): value is ChatTurn {
     Array.isArray(turn.sources) &&
     Array.isArray(turn.related) &&
     Array.isArray(turn.terms) &&
-    typeof turn.status === "string"
+    typeof turn.status === "string" &&
+    (turn.standalone === undefined || typeof turn.standalone === "string") &&
+    (turn.followUp === undefined || typeof turn.followUp === "boolean") &&
+    (turn.state === undefined || isConversationState(turn.state))
   );
 }
 

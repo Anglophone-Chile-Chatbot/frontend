@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SseParser } from "@/lib/api/sse";
-import type { ChatRequestBody, ChatSource, QuestionIntent } from "@/lib/api/types";
+import type {
+  ChatHistory,
+  ChatHistoryTurn,
+  ChatRequestBody,
+  ChatSource,
+  ConversationState,
+  QuestionIntent,
+} from "@/lib/api/types";
 
 /**
  * Chat state driven by the backend's own SSE protocol.
@@ -16,8 +23,9 @@ import type { ChatRequestBody, ChatSource, QuestionIntent } from "@/lib/api/type
  * request. Reading the stream directly keeps sources first-class, which is
  * exactly what citation chips need.
  *
- * Phase 1 chat is stateless *server-side* — no history is sent upstream and the
- * backend stores nothing. Turns live in memory here; the reader's own browser
+ * Phase 1 chat is stateless *server-side*: the backend stores nothing. Since
+ * CHUNK 25 / W8 each follow-up carries a compact history (the server's opaque
+ * conversation state and the last 3 questions, never earlier answers). Turns live in memory here; the reader's own browser
  * keeps a rolling copy (`use-session-persistence.ts`) so a navigation or a
  * reload does not throw the conversation away, and `restore` puts it back.
  */
@@ -55,6 +63,12 @@ export interface ChatTurn {
   intent?: QuestionIntent | null;
   /** The rewrite's subject terms, for the find-everything link. */
   topics?: string[];
+  /** The question as the server understood it (CHUNK 25 / W8). */
+  standalone?: string;
+  /** True when the server treated this turn as a follow-up to earlier turns. */
+  followUp?: boolean;
+  /** Opaque compact conversation state from the server's `state` SSE event. */
+  state?: ConversationState;
   status: "retrieving" | "streaming" | "complete" | "error";
   /** User-facing error copy, set only when `status === "error"`. */
   error?: string;
@@ -90,12 +104,20 @@ const ERROR_COPY: Record<string, string> = {
   MESSAGE_TOO_LONG: "That question is too long. Shorten it and try again.",
   SCOPE_INVALID:
     "That document selection is no longer valid. Clear it and choose again.",
+  RATE_LIMITED: "Too many questions right now. Try again shortly.",
+  SERVICE_UNAVAILABLE: "AI answers are unavailable right now; search still works.",
 };
 
 export function useArchiveChat(): UseArchiveChat {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // The settled turns, read by `ask` to build the follow-up history. A ref, so
+  // `ask` keeps one identity instead of being rebuilt on every streamed delta.
+  const turnsRef = useRef<ChatTurn[]>([]);
+  useEffect(() => {
+    turnsRef.current = turns;
+  }, [turns]);
 
   /** Apply a partial update to one turn, leaving the rest untouched. */
   const patchTurn = useCallback((id: string, patch: Partial<ChatTurn>) => {
@@ -143,6 +165,10 @@ export function useArchiveChat(): UseArchiveChat {
           if (scope.date_to) payload.date_to = scope.date_to;
           if (scope.undated) payload.undated = true;
         }
+        const history = buildHistory(turnsRef.current);
+        if (history !== undefined) {
+          payload.history = history;
+        }
 
         const response = await fetch("/api/chat", {
           method: "POST",
@@ -152,10 +178,14 @@ export function useArchiveChat(): UseArchiveChat {
         });
 
         if (!response.ok || !response.body) {
-          const code = await readErrorCode(response);
+          const { code, message } = await readError(response);
+          const errorText =
+            code === "RATE_LIMITED" || code === "SERVICE_UNAVAILABLE"
+              ? (message ?? ERROR_COPY[code])
+              : (ERROR_COPY[code] ?? ERROR_COPY.BACKEND_ERROR);
           patchTurn(id, {
             status: "error",
-            error: ERROR_COPY[code] ?? ERROR_COPY.BACKEND_ERROR,
+            error: errorText,
           });
           return;
         }
@@ -180,11 +210,15 @@ export function useArchiveChat(): UseArchiveChat {
                 terms: event.terms,
                 intent: event.intent,
                 topics: event.topics,
+                standalone: event.standalone_question ?? trimmed,
+                followUp: event.follow_up,
                 status: "streaming" 
               });
             } else if (event.type === "delta") {
               answer += event.text;
               patchTurn(id, { answer, status: "streaming" });
+            } else if (event.type === "state") {
+              patchTurn(id, { state: event.state });
             } else if (event.type === "error") {
               patchTurn(id, {
                 status: "error",
@@ -247,16 +281,63 @@ export function useArchiveChat(): UseArchiveChat {
   return { turns, isBusy, ask, stop, reset, restore };
 }
 
-/** Pull the `code` out of a JSON error body, if there is one. */
-async function readErrorCode(response: Response): Promise<string> {
+/**
+ * Build the compact conversation history from earlier completed turns.
+ *
+ * Omits `history` entirely on the first question (no earlier completed turns).
+ * Skips turns that errored or were stopped before any answer text arrived.
+ * Uses the most recent `state` from any earlier completed turn (omitting `state`
+ * when no turn has one, e.g. turns restored from an older saved session).
+ */
+function buildHistory(turns: ChatTurn[]): ChatHistory | undefined {
+  const completed = turns.filter(
+    (turn) => turn.status === "complete" && turn.answer.length > 0,
+  );
+  if (completed.length === 0) return undefined;
+
+  let latestState: ConversationState | undefined;
+  for (let i = completed.length - 1; i >= 0; i--) {
+    if (completed[i].state !== undefined) {
+      latestState = completed[i].state;
+      break;
+    }
+  }
+
+  const recentTurns: ChatHistoryTurn[] = completed.slice(-3).map((turn) => ({
+    question: turn.question,
+    standalone:
+      turn.standalone && turn.standalone.trim().length > 0
+        ? turn.standalone
+        : turn.question,
+  }));
+
+  return latestState !== undefined
+    ? { state: latestState, turns: recentTurns }
+    : { turns: recentTurns };
+}
+
+/** Pull `code` and `error` out of a JSON error body, if present. */
+async function readError(
+  response: Response,
+): Promise<{ code: string; message?: string }> {
   try {
     const body: unknown = await response.json();
     if (typeof body === "object" && body !== null) {
-      const code = (body as Record<string, unknown>).code;
-      if (typeof code === "string") return code;
+      const record = body as Record<string, unknown>;
+      const code =
+        typeof record.code === "string"
+          ? record.code
+          : response.status === 429
+            ? "RATE_LIMITED"
+            : "BACKEND_ERROR";
+      const message =
+        typeof record.error === "string" && record.error.trim().length > 0
+          ? record.error.trim()
+          : undefined;
+      return { code, message };
     }
   } catch {
     // Non-JSON error body; fall through to the generic message.
   }
-  return "BACKEND_ERROR";
+  return { code: response.status === 429 ? "RATE_LIMITED" : "BACKEND_ERROR" };
 }

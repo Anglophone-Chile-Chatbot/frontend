@@ -1,7 +1,7 @@
 # Archive test checklist (for the research assistant)
 
 Site: https://frontend-gamma-dun-82.vercel.app
-Last updated: 2026-10-05. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
+Last updated: 2026-10-21. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
 
 **How to work.** Tick a box when the test is done. Under each test, write what you saw. Mark it **OK** or **PROBLEM**. For a problem, always give the exact question you typed, the newspaper, date and page, what you expected, and what happened. Note your device and browser once at the top.
 
@@ -33,9 +33,9 @@ Device and browser:
   - Write down: on-topic sources out of 6 for each word, and any word that found nothing useful.
   - Notes:
 
-- [ ] **A4. Questions the archive cannot answer** (5 min).
+- [ ] **A4. Questions the archive cannot answer** (5 min) **(changed 2026-10-21)**.
   1. Ask about aeroplanes, television, and a person you invent.
-  - Works when: the site says nothing matches. It never invents an answer.
+  - Works when: the site says nothing matches. It never invents an answer. If the archive reaches its daily AI limit, the answer says so and search still works.
   - Write down: exactly what it said.
   - Notes:
 
@@ -50,6 +50,14 @@ Device and browser:
   2. Then ask: *Tell me about the mining industry*, *What did the papers say about the earthquake?*, *Who was the British consul?*
   - Works when: the first four each show "This answer draws on six passages at most. See every match for …" with sensible search words. The last three show no such line.
   - Write down: any question where the line appeared when it should not, or was missing when it should be there.
+  - Notes:
+
+- [ ] **A7. Follow-up questions** (10 min) **(changed 2026-10-21)**.
+  1. Ask a question, then ask a follow-up with a pronoun (for example, *What happened to them afterwards?*).
+  2. Check that the answer is about the same subject and that *Searched for: …* appears under it and makes sense.
+  3. Ask an unrelated question on a new topic and check it is not treated as a follow-up (no line, or the line shows the question unchanged).
+  - Works when: the follow-up stays on the same subject with a sensible *Searched for: …* line, and the unrelated question is not treated as a follow-up.
+  - Write down: the three questions, the *Searched for: …* line you saw, and what happened on the unrelated question.
   - Notes:
 
 ## B. Browse: finding every mention

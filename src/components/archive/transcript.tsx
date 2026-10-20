@@ -136,6 +136,12 @@ function TurnBlock({
         turn.answer.length === 0 &&
         turn.sources.length === 0 && <NoMatchNote scoped={turn.scope !== null} />}
 
+      {turn.status !== "retrieving" &&
+        turn.status !== "error" &&
+        (turn.answer.length > 0 || turn.status === "complete") && (
+          <SearchedForNote turn={turn} />
+        )}
+
       {turn.status === "complete" && (
         <EveryMatchNote question={turn.question} intent={turn.intent} topics={turn.topics} />
       )}
@@ -363,6 +369,25 @@ function RelatedList({
  * already typed. The backend's verdict decides when it shows (see
  * `lib/sweep-intent.ts`).
  */
+/**
+ * Shown under a follow-up answer when the server's standalone question differs
+ * from what the reader typed, so the reader can see how the follow-up was
+ * understood and rephrase if needed (CHUNK 25 / W8).
+ */
+function SearchedForNote({ turn }: { turn: ChatTurn }) {
+  if (!turn.followUp || !turn.standalone) return null;
+  const standalone = turn.standalone.trim();
+  if (standalone.length === 0) return null;
+  if (standalone.toLowerCase() === turn.question.trim().toLowerCase()) {
+    return null;
+  }
+  return (
+    <p className="measure text-[0.8125rem] leading-relaxed text-muted-foreground">
+      Searched for: {standalone}
+    </p>
+  );
+}
+
 function EveryMatchNote({
   question,
   intent,
