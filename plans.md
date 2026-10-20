@@ -65,7 +65,7 @@ A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`
 4. **Small items:** the header wordmark sits off-centre next to the rail on desktop (noticed 2026-08-11);
    check it, fix if still true.
 5. **Later:** react-pdf is probably the wrong item (PDFs never reach the server) — drop unless the RA asks for
-   it; Turnstile is blocked on having no Cloudflare; gate Vercel on CI only if a second contributor joins.
+   it; Turnstile is blocked on having no Cloudflare; gate Vercel on CI only if a second contributor joins. **A second contributor is joining (2026-10-20, backend CHUNK 24 side track), so this is now due:** require the CI check to pass before a push to `main` deploys.
 
 ---
 
