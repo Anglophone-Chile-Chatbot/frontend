@@ -53,6 +53,11 @@ code; APIs differ from training data. See AGENTS.md.
 Pruned 2026-10-03 to open work only (1,591 lines → 179). Finished chunks (2, 3, 4, 6, 7, the 2026-08-11 audit,
 A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`) and `infra/BUILT.md`.
 
+0. **W8, follow-up questions (CODING PRIORITY #1, with backend CHUNK 25, 2026-10-20).** Send the last 3 turns as
+   compact history: each question, the server's standalone question, and cited chunk ids. **Never the previous answers**
+   (cost and prompt-injection; backend CHUNK 25 has the cost table). Store the standalone question with each saved turn,
+   show "Searched for: ..." under follow-up answers, and handle the daily-limit message. Old saved turns fall back to
+   the plain question. Update `TESTING.md` with a follow-up test in the same turn it ships.
 1. **Research-assistant feedback.** He works through `TESTING.md`. Fix what he reports; keep `TESTING.md`
    current in the same turn as any change a reader would see (hard rule in CLAUDE.md).
 2. **"Find all", the rest** (with backend CHUNK 22): show the junk filter's result in the Browse list once the
