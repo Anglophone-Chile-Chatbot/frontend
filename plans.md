@@ -53,7 +53,8 @@ code; APIs differ from training data. See AGENTS.md.
 Pruned 2026-10-03 to open work only (1,591 lines → 179). Finished chunks (2, 3, 4, 6, 7, the 2026-08-11 audit,
 A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`) and `infra/BUILT.md`.
 
-0. **W8, follow-up questions (CODING PRIORITY #1, with backend CHUNK 25, 2026-10-20).** Send the last 3 turns as
+0. **W8 is DEPLOYED (2026-10-21) but NOT measured**: the follow-up state could not be seen end to end because Gemini answers return 402 until credit is back. When it is, run the test list in `TESTING.md` for follow-ups and backend CHUNK 25's measurement plan. Original spec:
+   **W8, follow-up questions (CODING PRIORITY #1, with backend CHUNK 25, 2026-10-20).** Send the last 3 turns as
    compact history: the latest conversation state (the backend's `state` event, at most 250 words), each question, the
    server's standalone question, and cited chunk ids. **Never full previous answers** (cost; backend CHUNK 25 has the
    cost table). Store the state and standalone question with each saved turn,
