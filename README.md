@@ -27,6 +27,8 @@ Built for a professor and research assistants studying 19th-century English-lang
 
 ## Getting started
 
+Needs Node.js 20 or newer (CI runs 20).
+
 ```bash
 npm install
 npm run dev
@@ -34,7 +36,8 @@ npm run dev
 
 The dev server is pinned to **port 3417** (not 3000) — open [http://localhost:3417](http://localhost:3417).
 
-Set `BACKEND_API_URL` in a local `.env` to point Route Handlers at a running FastAPI backend. Route
+Create `.env.local` with `BACKEND_API_URL` pointing at a running FastAPI backend: the live one
+(`http://129.80.3.40/api/v1`, public reads) for front-end work, or `http://localhost:8000/api/v1` for a local one. Route
 Handlers proxy every backend call — `/api/chat`, `/api/search`, `/api/pages/[id]` — so the backend
 origin is never exposed to the browser.
 
@@ -42,9 +45,13 @@ origin is never exposed to the browser.
 
 Phase 1 (public chatbot, full-text search, document viewer) is functionally complete and verified
 against the live backend: `/api/chat` streams real Server-Sent Events end-to-end, `/api/search`
-proxies real Postgres full-text queries. The corpus itself is still being populated via a separate
-OCR pipeline, so the archive is currently near-empty — the plumbing works, the content is still
-being added.
+proxies real Postgres full-text queries. The live corpus is a pilot of 15 issues (117 pages) from
+five papers; the full ~5,000-page collection arrives after the bulk OCR run.
+
+## Contributing
+
+Work on a branch and open a pull request into `main`; pushing to `main` deploys to production.
+The CI check (lint, type check, build) must pass. Every view is designed at 375px first.
 
 Live deployment: [frontend-gamma-dun-82.vercel.app](https://frontend-gamma-dun-82.vercel.app)
 
