@@ -60,8 +60,8 @@ A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`
    cost table). Store the state and standalone question with each saved turn,
    show "Searched for: ..." under follow-up answers, and handle the daily-limit message. Old saved turns fall back to
    the plain question. Update `TESTING.md` with a follow-up test in the same turn it ships.
-   **STATUS 2026-10-21: BUILT on branch `chunk-25-followups`, NOT merged, NOT tested** (coding-only session;
-   joint test later). Built by Antigravity from Claude Code's contract, reviewed and adjusted by Claude Code: the
+   **STATUS 2026-10-22: LIVE (merged 2026-10-21 ~01:15 local by another session), follow-up quality NOT yet tested.**
+   Originally built on branch `chunk-25-followups`. Built by Antigravity from Claude Code's contract, reviewed and adjusted by Claude Code: the
    hook sends `history` {state (opaque, echoed), last 3 completed turns as {question, standalone}}; the server adds
    the cited ids itself, so the browser sends none. `/api/chat` forwards `history` (light shape check) and passes
    429 and 503 bodies through so the reader sees "daily AI limit ... search still works". "Searched for: ..." shows
