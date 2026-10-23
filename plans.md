@@ -53,27 +53,17 @@ code; APIs differ from training data. See AGENTS.md.
 Pruned 2026-10-03 to open work only (1,591 lines → 179). Finished chunks (2, 3, 4, 6, 7, the 2026-08-11 audit,
 A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`) and `infra/BUILT.md`.
 
-0. **W8 is DEPLOYED (2026-10-21) but NOT measured**: the follow-up state could not be seen end to end because Gemini answers return 402 until credit is back. When it is, run the test list in `TESTING.md` for follow-ups and backend CHUNK 25's measurement plan. Original spec:
-   **W8, follow-up questions (CODING PRIORITY #1, with backend CHUNK 25, 2026-10-20).** Send the last 3 turns as
-   compact history: the latest conversation state (the backend's `state` event, at most 250 words), each question, the
-   server's standalone question, and cited chunk ids. **Never full previous answers** (cost; backend CHUNK 25 has the
-   cost table). Store the state and standalone question with each saved turn,
-   show "Searched for: ..." under follow-up answers, and handle the daily-limit message. Old saved turns fall back to
-   the plain question. Update `TESTING.md` with a follow-up test in the same turn it ships.
-   **STATUS 2026-10-22: LIVE (merged 2026-10-21 ~01:15 local by another session), follow-up quality NOT yet tested.**
-   Originally built on branch `chunk-25-followups`. Built by Antigravity from Claude Code's contract, reviewed and adjusted by Claude Code: the
-   hook sends `history` {state (opaque, echoed), last 3 completed turns as {question, standalone}}; the server adds
-   the cited ids itself, so the browser sends none. `/api/chat` forwards `history` (light shape check) and passes
-   429 and 503 bodies through so the reader sees "daily AI limit ... search still works". "Searched for: ..." shows
-   under follow-ups whose standalone question differs. TESTING.md A7 added. Merge only after the backend branch,
-   which needs its migration applied first (backend CHUNK 25 go-live order).
+0. **W8 (follow-up questions) is LIVE since 2026-10-21.** Its quality is tested by the research assistant with
+   `TESTING.md` A7, not in this queue (Shakib, 2026-10-23). Fix what comes back.
 1. **Research-assistant feedback.** He works through `TESTING.md`. Fix what he reports; keep `TESTING.md`
    current in the same turn as any change a reader would see (hard rule in CLAUDE.md).
 2. **"Find all", the rest** (with backend CHUNK 22): show the junk filter's result in the Browse list once the
    backend has it. **Done 2026-10-05:** the "See every match" line now follows the backend's `intent` verdict
    (sent in the chat `sources` frame with the rewrite's `topics`); `lib/sweep-intent.ts`'s phrase match is only the
    fallback for when the rewrite did not run or for turns saved before the verdict existed. TESTING.md A6.
-3. **W4c: blank or foxed plates** (below). Waits on a backend signal. (W4b, the one-line "what is a Plate"
+3. **W4c: blank or foxed plates: fixed at the source 2026-10-23** (backend W4c section): the pipeline now drops the
+   ghost plate and two slivers; live drops them once 3 database rows are deleted. No frontend change needed. When
+   live shows 79 figures, add a plates check to `TESTING.md` (Star of Chile 1904-12-03 p8 shows 2 plates, not 3). (W4b, the one-line "what is a Plate"
    explainer, shipped 2026-10-05 as a permanent line atop the Plates gallery, not a once-per-session note: one
    line costs nothing and needs no browser storage. TESTING.md C4.)
 4. **Small items:** the header wordmark sits off-centre next to the rail on desktop (noticed 2026-08-11);
@@ -83,7 +73,7 @@ A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`
 
 ---
 
-### W4c — ghost/blank plates (real gap, confirmed, explicitly NOT fixed this pass)
+### W4c — ghost/blank plates (FIXED IN THE PIPELINE 2026-10-23, see backend plans W4c; history below)
 
 Confirmed by reading `use-document-figures.ts` and `plate.tsx`: there is **no quality or content
 filtering anywhere in the figure pipeline** — every block the OCR engine tagged as an image-bearing
