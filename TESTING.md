@@ -1,6 +1,6 @@
 # Archive test checklist (for the research assistant)
 
-Site: https://frontend-gamma-dun-82.vercel.app
+Site: https://anglochile.vercel.app
 Last updated: 2026-10-24. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
 
 **How to work.** Tick a box when the test is done. Under each test, write what you saw. Mark it **OK** or **PROBLEM**. For a problem, always give the exact question you typed, the newspaper, date and page, what you expected, and what happened. Note your device and browser once at the top.

@@ -53,7 +53,7 @@ five papers; the full ~5,000-page collection arrives after the bulk OCR run.
 Work on a branch and open a pull request into `main`; pushing to `main` deploys to production.
 The CI check (lint, type check, build) must pass. Every view is designed at 375px first.
 
-Live deployment: [frontend-gamma-dun-82.vercel.app](https://frontend-gamma-dun-82.vercel.app)
+Live deployment: [anglochile.vercel.app](https://anglochile.vercel.app) (the older frontend-gamma-dun-82.vercel.app address still works and points at the same project)
 
 ## Deploy
 

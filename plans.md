@@ -17,7 +17,7 @@ read that before ever re-raising this.
 `npx vercel --prod --yes` still works and is harmless, but it is **not required**. Do not tell
 Shakib the site needs a manual deploy.
 
-Prod alias: `https://frontend-gamma-dun-82.vercel.app`. **To check a deploy: one `gh` commit-status call, then one `curl` of a new route here. Never a wait loop.** **Verify on that URL, not localhost**, before
+Prod alias: `https://anglochile.vercel.app` (project renamed from `frontend` to `anglochile` 2026-10-24; the old `frontend-gamma-dun-82.vercel.app` is still attached to the same project and keeps working). **To check a deploy: one `gh` commit-status call, then one `curl` of a new route here. Never a wait loop.** **Verify on that URL, not localhost**, before
 calling frontend work shipped — and note a `curl` 403 there is bot mitigation, not a broken deploy
 (see the traps in the DEPLOYMENT section).
 
