@@ -61,9 +61,9 @@ A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`
    backend has it. **Done 2026-10-05:** the "See every match" line now follows the backend's `intent` verdict
    (sent in the chat `sources` frame with the rewrite's `topics`); `lib/sweep-intent.ts`'s phrase match is only the
    fallback for when the rewrite did not run or for turns saved before the verdict existed. TESTING.md A6.
-3. **W4c: blank or foxed plates: fixed at the source 2026-10-23** (backend W4c section): the pipeline now drops the
-   ghost plate and two slivers; live drops them once 3 database rows are deleted. No frontend change needed. When
-   live shows 79 figures, add a plates check to `TESTING.md` (Star of Chile 1904-12-03 p8 shows 2 plates, not 3). (W4b, the one-line "what is a Plate"
+3. **W4c: DONE 2026-10-24.** Pipeline drops the ghost plate and two slivers; the 3 rows were deleted on live (Shakib's
+   go-ahead). Live API checked: Star of Chile 1904-12-03 p8 has 2 figures, Sample 2 p13 has 0; live total 79.
+   `TESTING.md` C5 added. (W4b, the one-line "what is a Plate"
    explainer, shipped 2026-10-05 as a permanent line atop the Plates gallery, not a once-per-session note: one
    line costs nothing and needs no browser storage. TESTING.md C4.)
 4. **Small items:** the header wordmark sits off-centre next to the rail on desktop (noticed 2026-08-11);

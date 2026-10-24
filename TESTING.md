@@ -1,7 +1,7 @@
 # Archive test checklist (for the research assistant)
 
 Site: https://frontend-gamma-dun-82.vercel.app
-Last updated: 2026-10-21. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
+Last updated: 2026-10-24. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
 
 **How to work.** Tick a box when the test is done. Under each test, write what you saw. Mark it **OK** or **PROBLEM**. For a problem, always give the exact question you typed, the newspaper, date and page, what you expected, and what happened. Note your device and browser once at the top.
 
@@ -104,6 +104,13 @@ Device and browser:
 - [ ] **C4. Is "Plates" explained?** (phone, 2 min) **(changed 2026-10-05: new one-line explanation)**
   1. Open *The Star of Chile*, 3 December 1904, and tap the **Plates** tab.
   - Works when: the first line says what a plate is (an engraving, photograph or illustration from the issue) before the count, and it reads clearly on a phone.
+  - Notes:
+
+- [ ] **C5. Are the plates all real pictures?** (laptop, 5 min) **(changed 2026-10-24: three junk plates removed)**
+  1. Open *The Star of Chile*, 3 December 1904, page 8. It should show **2** plates (a woman with a child, and Valparaiso Bay), not 3. The empty, see-through strip between them is no longer a plate.
+  2. Open the other Star of Chile issue's page 13 (the railway timetable). It should show **no** plates.
+  3. Open the Plates tab of every Star of Chile issue and scroll through.
+  - Works when: every plate shows a printed picture, ad drawing or lettering. Report any plate that is blank paper, a smudge, or a thin sliver of a line, with the newspaper, date and page.
   - Notes:
 
 ## D. Phone, saving and everyday use
