@@ -1,165 +1,49 @@
 # frontend/plans.md
-> Living checklist scoped to the `frontend/` repo only (Next.js 16, shadcn, chat UI, viewer).
-> Read at session start. Remove items when actually done. Add confirmed decisions/tasks immediately.
-> Never create other planning `.md` files — this is the only one for this repo.
-> NOTE: this repo is on Next.js 16 (not 15) — read `node_modules/next/dist/docs/` before writing Next code; APIs differ from training data (async params, proxy.ts, etc). See AGENTS.md.
+> Living checklist scoped to the `frontend/` repo (Next.js 16, shadcn, chat UI, viewer).
+> Read at session start. Delete items when done. Add confirmed decisions immediately. No other planning `.md` files.
+> **Next.js 16, not 15**: `params` is async; read `node_modules/next/dist/docs/` before writing Next code (AGENTS.md).
+> **This repo is PUBLIC**: this file and `TESTING.md` are world-readable. No secrets, no private names.
+
+**Pruned 2026-11-13.** Removed: the W4c history (done, live 2026-10-24) and the long deployment retraction. Full
+pre-prune text: `git show 064ed33:plans.md`; older: `git show 660afe3:plans.md`.
 
 ---
 
-## ✅ DEPLOYING THIS REPO — pushing to `main` DOES deploy. (Corrected 2026-09-18; the 2026-08-31 and 2026-09-17 claims to the contrary were both wrong)
+## Deploying: a push to `main` deploys (Vercel git integration, connected 2026-07-15)
 
-**Vercel is connected to this repo and auto-deploys `main`.** Dashboard shows
-*Anglophone-Chile-Chatbot/frontend, Connected Jul 15*, and every recent commit carries a
-`Vercel` / `success` GitHub commit status — which only exists when the git integration is live.
-Full evidence, method and the retraction is in the **DEPLOYMENT** section further down this file;
-read that before ever re-raising this.
-
-`npx vercel --prod --yes` still works and is harmless, but it is **not required**. Do not tell
-Shakib the site needs a manual deploy.
-
-Prod alias: `https://anglochile.vercel.app` (project renamed from `frontend` to `anglochile` 2026-10-24; the old `frontend-gamma-dun-82.vercel.app` is still attached to the same project and keeps working). **To check a deploy: one `gh` commit-status call, then one `curl` of a new route here. Never a wait loop.** **Verify on that URL, not localhost**, before
-calling frontend work shipped — and note a `curl` 403 there is bot mitigation, not a broken deploy
-(see the traps in the DEPLOYMENT section).
+- Live address: **https://anglochile.vercel.app** (project `anglochile`; the old `frontend-gamma-dun-82.vercel.app`
+  still points at the same project). Verify there, not on localhost, before calling work shipped.
+- To check a deploy: one `gh api repos/Anglophone-Chile-Chatbot/frontend/commits/<sha>/status` (a `Vercel`/`success`
+  status), then one `curl` of a new route. Never a wait loop. `npx vercel --prod` works but is never required.
+- Traps: `curl` can get a 403 "Vercel Security Checkpoint" (bot check, a real browser passes); direct
+  `frontend-<hash>-….vercel.app` URLs 302 to auth. Neither means the site is down. Never call the deploy path
+  broken without checking the commit status first (the 2026-09-17 false alarm).
 
 ---
 
-## READ FIRST — this file is authoritative for the frontend; root `plans.md` is RETIRED
+## WHAT'S NEXT, in order (2026-11-13). Start here.
 
-**Root `plans.md` was retired 2026-09-16** and is no longer read at session start. It is not the
-cross-repo tiebreaker any more — there is no tiebreaker above the per-repo files, and where they
-disagree, the repo that owns the code owns the answer. Anything still open in root was moved into the
-owning repo in that same pass (the **D-series** pipeline audit and **C5** went to `backend/plans.md`);
-the archived copy is `plans.archive.md` at the root, kept for history only. Do not restore a
-dependency on it.
+Nothing on the site blocks the GPU work (backend CHUNK 29), which is the project's critical path right now.
 
-**Frontend owns CHUNK 2 (the reader), CHUNK 3 (images + front door), and part of CHUNK 6.** All CHUNK
-work is complete — "THE CHUNKS" had zero open items at retirement, so nothing was carried across.
+1. **Second contributor's test results** (`TESTING.md`, follow-ups in A7). None recorded yet as of 2026-11-13. Fix
+   what comes back; keep `TESTING.md` current in the same turn as any reader-visible change.
+2. **Require CI before `main` deploys**, now that a second contributor exists: branch protection on this public repo
+   (require a PR and the `lint-typecheck-build` check, admins exempt). One click for Shakib in GitHub settings;
+   Claude Code's permission guard blocked doing it.
+3. **Small:** the header wordmark sits off-centre next to the rail on desktop (noticed 2026-08-11); check, fix if true.
+4. **Open check:** the newspapers rail, filters, "See every match" and the By-issue list on a real phone and on the
+   live site (checked at 375 px and 1352 px locally only). A browser check: ask first, then hand it to a helper.
+5. **"Find all", the rest** (with backend CHUNK 22): the result block, relevance-filtered list, export, once the
+   backend has them.
+6. **Article leftovers** (with backend CHUNK 19): outline the article region over the scan; a `kind` filter so adverts
+   can be left out of find-all.
+7. **After the bulk run** (backend CHUNK 28 tier 3): credit line per scan source, "Also at the British Library",
+   "About this paper", "Cite this issue", later place/publisher/decade filters. Mobile-first, `TESTING.md` same turn.
 
-**Next.js 16, not 15** — `params` is async in route handlers and pages
-(`const { documentId } = await params`). Read `node_modules/next/dist/docs/` before writing Next
-code; APIs differ from training data. See AGENTS.md.
-
----
-
-## Open verification items (2026-09-29)
-
-- [ ] Look at the newspapers folder rail, filters, the "See every match" link and the By-issue list on a real phone and on the live site once the backend deploy carrying per-issue counts is up (2026-10-03: checked at 375px/1352px locally only).
-
----
-
-
-## WHAT'S NEXT, in order (2026-10-03). Start here.
-
-Pruned 2026-10-03 to open work only (1,591 lines → 179). Finished chunks (2, 3, 4, 6, 7, the 2026-08-11 audit,
-A5, D5, W2, W3, W4a/d/e, W6, W7) are in git history (`git show 660afe3:plans.md`) and `infra/BUILT.md`.
-
-0. **W8 (follow-up questions) is LIVE since 2026-10-21.** Its quality is tested by the research assistant with
-   `TESTING.md` A7, not in this queue (Shakib, 2026-10-23). Fix what comes back.
-1. **Research-assistant feedback.** He works through `TESTING.md`. Fix what he reports; keep `TESTING.md`
-   current in the same turn as any change a reader would see (hard rule in CLAUDE.md).
-2. **"Find all", the rest** (with backend CHUNK 22): show the junk filter's result in the Browse list once the
-   backend has it. **Done 2026-10-05:** the "See every match" line now follows the backend's `intent` verdict
-   (sent in the chat `sources` frame with the rewrite's `topics`); `lib/sweep-intent.ts`'s phrase match is only the
-   fallback for when the rewrite did not run or for turns saved before the verdict existed. TESTING.md A6.
-3. **W4c: DONE 2026-10-24.** Pipeline drops the ghost plate and two slivers; the 3 rows were deleted on live (Shakib's
-   go-ahead). Live API checked: Star of Chile 1904-12-03 p8 has 2 figures, Sample 2 p13 has 0; live total 79.
-   `TESTING.md` C5 added. (W4b, the one-line "what is a Plate"
-   explainer, shipped 2026-10-05 as a permanent line atop the Plates gallery, not a once-per-session note: one
-   line costs nothing and needs no browser storage. TESTING.md C4.)
-4. **Small items:** the header wordmark sits off-centre next to the rail on desktop (noticed 2026-08-11);
-   check it, fix if still true.
-5. **Later:** react-pdf is probably the wrong item (PDFs never reach the server) — drop unless the RA asks for
-   it; Turnstile is blocked on having no Cloudflare; gate Vercel on CI only if a second contributor joins. **A second contributor is joining (2026-10-20, backend CHUNK 24 side track), so this is now due:** require the CI check to pass before a push to `main` deploys.
-
----
-
-### W4c — ghost/blank plates (FIXED IN THE PIPELINE 2026-10-23, see backend plans W4c; history below)
-
-Confirmed by reading `use-document-figures.ts` and `plate.tsx`: there is **no quality or content
-filtering anywhere in the figure pipeline** — every block the OCR engine tagged as an image-bearing
-type becomes a "Plate" in the gallery and the scan-tile counts, full stop. Screenshotted live: Plate
-13 on Star of Chile 3 Dec 1904 p8 is a faded, foxed blank scrap — no photograph, no engraving,
-nothing printed on it, and it gets a plate number and a spot in the gallery exactly like Plate 14 (a
-real harbor photograph) sitting right next to it. Shakib's call, stated directly: fine to leave as-is
-for now, but track it rather than silently accept it, because "20 plates found" is currently an
-inflated, partly-wrong count that will only get worse across the full 5,000-page corpus.
-
-This is a **backend/pipeline problem, not a frontend one** — the frontend has no way to distinguish a
-blank scrap from a photograph without either (a) a quality signal from the OCR/detection stage (e.g.
-an ink-coverage or contrast heuristic on the crop) or (b) a human/RA review step (Phase 3 territory,
-RAs uploading and curating). Noting it here because it was found during a frontend UX audit, but the
-actual fix belongs in `backend/plans.md` or the OCR pipeline scripts — **cross-reference added there
-in the same session this plan entry was written**, per the Claude⇄Antigravity / cross-repo sync rule.
-Do not silently drop plates client-side as a workaround (that would be exactly the kind of unverified,
-looks-real-but-isn't cleanup the no-placeholders rule forbids — a dropped plate with no server-side
-signal behind it is a guess dressed up as a filter).
-
-
----
-
-## ✅ DEPLOYMENT — Vercel DOES auto-deploy on push to `main`. The 2026-09-17 "manual deploy required" claim was WRONG and is retracted (corrected 2026-09-18)
-
-**Pushing to `main` deploys the frontend automatically. It always has.** Do not add a manual
-`vercel --prod` step, and do not tell Shakib the site needs a hand-deploy — he connected the repo
-(Vercel dashboard → Project → Settings → Git shows *Anglophone-Chile-Chatbot/frontend, Connected
-Jul 15*) and was made to re-verify it repeatedly because of this entry.
-
-**The evidence that settles it, re-derived 2026-09-18 with commands, not inference:**
-
-```
-gh api repos/Anglophone-Chile-Chatbot/frontend/commits/<sha>/status
-```
-
-Every recent commit carries a **`Vercel` / `success`** commit status, which only exists when the git
-integration is live and deploying:
-
-| commit | Vercel status posted |
-|---|---|
-| `dd005f7` | 2026-09-18T10:27:02Z |
-| `a223698` | 2026-09-17T17:35:42Z |
-| `2a02375` | 2026-09-16T22:08:17Z |
-| `1be9e59` | 2026-09-16T21:44:27Z |
-| `dea7ebc` | 2026-09-15T23:05:31Z |
-| `5099f61` | 2026-09-04T20:43:22Z |
-
-`git reflog show origin/main --date=iso` cross-checks it: `1be9e59` was **pushed 09-17 03:44:02**
-(+06), and a production deployment was **created 09-17 04:04:47** — with nothing manual run in
-between. `.github/workflows/ci.yml` only lints/typechecks/builds and has no deploy step, so that
-deployment could only have come from Vercel's git hook.
-
-**Why the wrong entry happened, because the failure mode matters more than the fact.** The
-2026-09-17 session saw "newest Production deployment is 12 days old, six commits aren't live" and
-concluded *the integration is broken*. That was **an inference presented as a measurement** — the
-exact trap `CLAUDE.md`'s "A MEASUREMENT IS NOT A STORY" rule describes. The staleness was real; the
-cause was not checked. It then wrote the conclusion into five files, and every later session
-(including 2026-09-18's) read it, believed it, and made Shakib re-prove his own dashboard — the same
-stale-blocker loop `BACKEND_API_URL` caused on 2026-08-12, which the docs rule exists to prevent.
-Worse, the wrong entry was *load-bearing*: it closed the question, so nobody ran the one `gh api`
-command that would have refuted it in ten seconds.
-
-**Rules going forward:**
-1. **Never claim a deploy path is broken without checking the commit status / deployment source.**
-   "Prod looks stale" is a symptom with several causes (propagation, a failed build, a cached
-   browser, looking at the wrong alias) — the integration being off is only one of them.
-2. `npx vercel --prod --yes` still *works* and is harmless, but it is **not required** and must not
-   be described as required. Prefer letting the push deploy.
-3. **The two verification traps below are real and still apply** — they were the only correct part
-   of the retracted entry, and misreading them is probably what produced the false conclusion.
-
-**Two traps when verifying a deployment:**
-- **`curl` gets HTTP 403 "Vercel Security Checkpoint" on `frontend-gamma-dun-82.vercel.app`; a real
-  browser passes it transparently.** That is bot mitigation (`x-vercel-mitigated: challenge`), not
-  deployment protection, and it is not caused by deploying. **Do not read a curl 403 there as the
-  site being down** — check in a browser first.
-- Direct `frontend-<hash>-….vercel.app` URLs return **302** to auth. Normal. The alias is the
-  public URL.
-
----
+**Dropped / parked:** react-pdf (PDFs never reach the server; drop unless a tester asks). Turnstile waits on
+Cloudflare, which waits on a domain.
 
 ## Phase 2+
-- [ ] Semantic search UI, "similar passages" panel in viewer
-- [ ] Cross-document pattern discovery UI (confirmed 2026-08-08) — surfaces connections/patterns
-      found across multiple documents once the backend's cross-document feature (see
-      `backend/plans.md` Phase 2+) exists. Dedicated feature, not just multi-doc citations in one
-      answer.
-- [ ] NextAuth v5 activation (Phase 3, currently dormant shell only)
+- [ ] Semantic search UI, "similar passages" panel in the viewer (after embeddings, backend CHUNK 15).
+- [ ] Cross-document pattern discovery UI, on top of backend CHUNK 24 R5 (entity index) and R2 (reprints).
+- [ ] NextAuth v5 activation (Phase 3; dormant shell today).
