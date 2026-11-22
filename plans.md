@@ -77,10 +77,13 @@ same turn it ships.
    (CHUNK 30 step 4), show "Supplement" in the picker, citation chips, the Sources list and the viewer header, and
    drop file names from anything a reader sees. Two same-day issues with no edition fall back to "Issue 1 / Issue 2"
    by page count order, never the file name.
-8. **`TESTING.md` A7 rewritten** to match: the tester's conversations become the steps (wreck → first ship → topic
+8. **"Which did you mean?" chips** (with backend CHUNK 30 step 3). On a `clarify` frame, show the question and one
+   44 px chip per name; tapping one re-asks the reader's question with that name filled in. No answer box, no Sources
+   list for that turn, and it isn't saved as an answered turn in the follow-up history.
+9. **`TESTING.md` A7 rewritten** to match: the tester's conversations become the steps (wreck → first ship → topic
    switch; sports list → "the first one"; Stop before and during an answer), each marked changed.
 
-Build: items 1-4 and 6 need nothing from the backend and can ship first. Items 5 and 7 after. A helper can build
+Build: items 1-4 and 6 need nothing from the backend and can ship first. Items 5, 7 and 8 after. A helper can build
 it from this spec in its own working copy; review the diff and check at 375 px before merge.
 
 **Dropped / parked:** react-pdf (PDFs never reach the server; drop unless a tester asks). Turnstile waits on
