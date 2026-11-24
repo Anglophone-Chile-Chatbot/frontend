@@ -66,6 +66,7 @@ Device and browser:
   6. **"Which did you mean?"** If a follow-up could mean two different things, the site may ask *Which did you mean?* with a button for each. Tap one.
      - Works when: the buttons are easy to tap, and after tapping, the answer is about the one you chose.
   7. **Citation numbers.** On any answer with several numbers, compare the numbers in the text with the **Sources** list.
+     - Where several numbers sit side by side (like 1 2 3 4), tap each one on a phone. Each must open its own passage, never its neighbour's.
      - Works when: number 1 in the text opens the same passage as item 1 in the list, and so on. Passages the answer did not use are listed separately under *Matched the search, not used*, without numbers. You never see raw codes such as `[CITE:…]` or long strings of letters and digits in the answer.
   8. **Stop.** Ask a long question and press Stop right away, before any words appear. Then ask another and press Stop halfway through the answer.
      - Works when: stopped early, it says *Stopped before an answer was written. The passages it found are below.* (never "none of these answer the question"); stopped halfway, it keeps the words so far and adds *You stopped this answer.*

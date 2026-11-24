@@ -44,14 +44,20 @@ export function CitationChip({
         // Left margin only: the chip is a footnote mark, so it sits tight
         // against the following punctuation rather than floating between the
         // word and the period.
-        "relative ml-[0.15em] inline-flex min-w-[1.4em] items-center justify-center",
+        "cite-chip relative ml-[0.15em] inline-flex min-w-[1.6em] items-center justify-center",
         "rounded-[0.25rem] px-[0.35em] py-[0.05em] align-baseline",
         "font-sans text-[0.72em] font-medium leading-none numeric",
         "transition-[background-color,color,box-shadow] duration-[120ms]",
         "ease-[var(--ease-crisp)]",
-        // Expand the hit area to ~44px without affecting layout.
-        "after:absolute after:left-1/2 after:top-1/2 after:h-[44px] after:w-[44px]",
-        "after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
+        // Expand the hit area to 44px TALL without affecting layout, but only a
+        // little wider than the chip. It used to be 44px wide too, centred, and
+        // adjacent chips sit ~17px apart, so each chip's hit area covered its
+        // left neighbour's centre: tapping "1" in "1234" opened citation 2
+        // (live phone check 2026-11-24, 7 of 12 chips). Adjacent chips also get
+        // a small gap, so their hit areas never overlap.
+        "after:absolute after:-inset-x-[0.3em] after:top-1/2 after:h-[44px]",
+        "after:-translate-y-1/2 after:content-['']",
+        "[.cite-chip+&]:ml-[0.4em]",
         isActive
           ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
           : cn(
