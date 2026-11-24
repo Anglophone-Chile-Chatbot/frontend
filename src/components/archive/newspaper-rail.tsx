@@ -163,7 +163,16 @@ export function NewspaperRail({
         className,
       )}
     >
-      <div className="px-3.5 pt-4 pb-2">
+      <ArchiveDatesBlock
+        years={archiveYears(facets)}
+        filters={filters}
+        onSelectDateRange={(from, to) => {
+          onSelectDateRange(from, to);
+          onItemSelect?.();
+        }}
+      />
+
+      <div className="px-3.5 pt-3 pb-2">
         <p className="eyebrow px-1">Newspapers</p>
       </div>
 
@@ -364,6 +373,7 @@ export function NewspaperRail({
 
                     {isRangeOpen && (
                       <CustomDateRangePicker
+                        idPrefix={`rail-${pub.publication.replace(/[^A-Za-z0-9]+/g, "-")}`}
                         filters={filters}
                         onApply={(from, to) => {
                           onSelectPublicationDates(pub.publication, from, to);
@@ -414,12 +424,128 @@ export function NewspaperRail({
   );
 }
 
+/** Every year any paper has an issue in, oldest first. */
+function archiveYears(facets: { years: { year: number }[] }[]): number[] {
+  const years = new Set<number>();
+  for (const pub of facets) for (const y of pub.years) years.add(y.year);
+  return [...years].sort((a, b) => a - b);
+}
+
+/** The year a bound starts or ends on, or "" when unset. */
+function boundYear(iso: string | null): string {
+  return iso ? iso.slice(0, 4) : "";
+}
+
+/**
+ * Archive-wide dates (W9 item 5). The tester could not find the date controls,
+ * which lived only inside each newspaper once it was expanded. This block sits
+ * at the top of the panel and applies across whichever papers are chosen (or
+ * all of them): from-year and to-year pickers spanning the years the archive
+ * actually holds, plus exact custom dates. The per-paper year chips stay.
+ */
+function ArchiveDatesBlock({
+  years,
+  filters,
+  onSelectDateRange,
+}: {
+  years: number[];
+  filters: ArchiveFilterState;
+  onSelectDateRange: (from: string | null, to: string | null) => void;
+}) {
+  const [customOpen, setCustomOpen] = useState(false);
+  const fromYear = boundYear(filters.dateFrom);
+  const toYear = boundYear(filters.dateTo);
+  const hasRange = filters.dateFrom !== null || filters.dateTo !== null;
+  if (years.length === 0) return null;
+
+  const setFrom = (value: string) => {
+    const from = value ? `${value}-01-01` : null;
+    // A from-year after the to-year moves the end with it, never an empty range.
+    const to = value && toYear && value > toYear ? `${value}-12-31` : filters.dateTo;
+    onSelectDateRange(from, to);
+  };
+  const setTo = (value: string) => {
+    const to = value ? `${value}-12-31` : null;
+    const from = value && fromYear && value < fromYear ? `${value}-01-01` : filters.dateFrom;
+    onSelectDateRange(from, to);
+  };
+
+  const selectClass = cn(
+    "min-h-[44px] w-full rounded-md border bg-card px-2 text-base text-foreground lg:text-[0.8125rem]",
+    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+  );
+
+  return (
+    <section aria-labelledby="archive-dates-heading" className="px-3.5 pt-4 pb-1">
+      <div className="flex items-baseline justify-between px-1">
+        <p id="archive-dates-heading" className="eyebrow">
+          Dates
+        </p>
+        {hasRange && (
+          <button
+            type="button"
+            onClick={() => onSelectDateRange(null, null)}
+            className="-my-3 flex min-h-[44px] items-center px-1 text-[0.75rem] text-muted-foreground hover:text-foreground"
+          >
+            Clear dates
+          </button>
+        )}
+      </div>
+      <div className="mt-1.5 grid grid-cols-2 gap-2 px-1">
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.6875rem] text-muted-foreground">From year</span>
+          <select value={fromYear} onChange={(e) => setFrom(e.target.value)} className={selectClass}>
+            <option value="">Earliest</option>
+            {years.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[0.6875rem] text-muted-foreground">To year</span>
+          <select value={toYear} onChange={(e) => setTo(e.target.value)} className={selectClass}>
+            <option value="">Latest</option>
+            {years.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="px-1 pt-1">
+        <button
+          type="button"
+          aria-expanded={customOpen}
+          onClick={() => setCustomOpen((open) => !open)}
+          className="flex min-h-[44px] items-center gap-1.5 text-[0.75rem] text-muted-foreground hover:text-foreground"
+        >
+          <Calendar className="h-3 w-3" />
+          <span>{customOpen ? "Hide exact dates" : "Exact dates…"}</span>
+        </button>
+        {customOpen && (
+          <CustomDateRangePicker
+            idPrefix="archive"
+            filters={filters}
+            onApply={onSelectDateRange}
+            onClear={() => onSelectDateRange(null, null)}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
 /** Custom date range picker using native <input type="date"> (clean mobile support). */
 function CustomDateRangePicker({
+  idPrefix,
   filters,
   onApply,
   onClear,
 }: {
+  idPrefix: string;
   filters: ArchiveFilterState;
   onApply: (from: string | null, to: string | null) => void;
   onClear: () => void;
@@ -438,28 +564,28 @@ function CustomDateRangePicker({
       className="mt-1 flex flex-col gap-2 rounded-md border bg-card/60 p-2.5 text-xs"
     >
       <div className="flex flex-col gap-1">
-        <label htmlFor="rail-date-from" className="text-[0.6875rem] text-muted-foreground">
+        <label htmlFor={`${idPrefix}-date-from`} className="text-[0.6875rem] text-muted-foreground">
           From
         </label>
         <input
-          id="rail-date-from"
+          id={`${idPrefix}-date-from`}
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          className="min-h-[44px] rounded border bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+          className="min-h-[44px] rounded border bg-background px-2 text-base text-foreground lg:text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
         />
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="rail-date-to" className="text-[0.6875rem] text-muted-foreground">
+        <label htmlFor={`${idPrefix}-date-to`} className="text-[0.6875rem] text-muted-foreground">
           To
         </label>
         <input
-          id="rail-date-to"
+          id={`${idPrefix}-date-to`}
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          className="min-h-[44px] rounded border bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+          className="min-h-[44px] rounded border bg-background px-2 text-base text-foreground lg:text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
         />
       </div>
 

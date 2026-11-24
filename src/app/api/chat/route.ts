@@ -78,6 +78,13 @@ export async function POST(request: Request): Promise<Response> {
   if (dateTo !== undefined) payload.date_to = dateTo;
   if ((body as Record<string, unknown> | null)?.undated === true) payload.undated = true;
   if (history !== undefined) payload.history = history;
+  // Backend CHUNK 30: the name a reader tapped on a "Which did you mean?"
+  // chip. A short plain string or nothing; the backend checks it against the
+  // conversation's own names and ignores anything else.
+  const resolve = (body as Record<string, unknown> | null)?.resolve;
+  if (typeof resolve === "string" && resolve.trim().length > 0) {
+    payload.resolve = resolve.trim().slice(0, 80);
+  }
 
   let upstream: Response;
   try {

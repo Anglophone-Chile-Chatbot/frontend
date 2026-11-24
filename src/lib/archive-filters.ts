@@ -157,6 +157,9 @@ export function formatScopeLabel(filters: ArchiveFilterState): string {
   }
 
   const range = formatDateChipLabel(filters.dateFrom, filters.dateTo);
+  // W9 item 5: archive-wide dates with no paper chosen read "All newspapers,
+  // 1891–1904", not a bare year range.
+  if (range && parts.length === 0) parts.push("All newspapers");
   if (range) parts.push(range);
 
   return parts.join(", ") || "Filtered archive";

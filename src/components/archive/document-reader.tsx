@@ -32,6 +32,7 @@ import {
 import { useSourcePage } from "@/hooks/use-source-page";
 import type { DocumentPageSummary, ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
+import { editionName } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -276,7 +277,7 @@ export function DocumentReader({
       <ReaderHeader
         publication={document.publication ?? document.title}
         dateline={dateline}
-        editionLabel={document.edition_label}
+        editionLabel={editionName(document.edition)}
         pageNumber={isPageView ? (current?.page_number ?? null) : null}
         pageCount={document.page_count}
         query={search.query}
@@ -608,12 +609,7 @@ function ReaderHeader({
             archive does not know which of the pair the paper itself called a
             second edition, and it will not guess one. */}
         {editionLabel && (
-          <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 pl-7 text-[0.75rem]">
-            <span className="eyebrow shrink-0">Source</span>
-            <span className="numeric break-all text-muted-foreground">
-              {editionLabel}
-            </span>
-          </p>
+          <p className="mt-0.5 pl-7 text-[0.75rem] text-muted-foreground">{editionLabel}</p>
         )}
       </div>
     </div>

@@ -1,7 +1,7 @@
 # Archive test checklist (for the research assistant)
 
 Site: https://anglochile.vercel.app
-Last updated: 2026-10-24. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
+Last updated: 2026-11-24. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
 
 **How to work.** Tick a box when the test is done. Under each test, write what you saw. Mark it **OK** or **PROBLEM**. For a problem, always give the exact question you typed, the newspaper, date and page, what you expected, and what happened. Note your device and browser once at the top.
 
@@ -52,12 +52,33 @@ Device and browser:
   - Write down: any question where the line appeared when it should not, or was missing when it should be there.
   - Notes:
 
-- [ ] **A7. Follow-up questions** (10 min) **(changed 2026-10-21)**.
-  1. Ask a question, then ask a follow-up with a pronoun (for example, *What happened to them afterwards?*).
-  2. Check that the answer is about the same subject and that *Searched for: …* appears under it and makes sense.
-  3. Ask an unrelated question on a new topic and check it is not treated as a follow-up (no line, or the line shows the question unchanged).
-  - Works when: the follow-up stays on the same subject with a sensible *Searched for: …* line, and the unrelated question is not treated as a follow-up.
-  - Write down: the three questions, the *Searched for: …* line you saw, and what happened on the unrelated question.
+- [ ] **A7. Follow-up questions** (25 min) **(changed 2026-11-24: rebuilt from your first report)**. Start each part with **New question** so it begins fresh. Under every answer there is now a small grey line: *Searched for: …* (what the site actually looked for) or *Treated as a new question*.
+  1. **The wreck.** Ask: *What shipping news appears in these issues?* Then: *tell me more about the wreck*.
+     - Works when: the second answer is about the ship the first answer said was wrecked (in our copy that is the British barque *Ailshaw*), not about ships that simply arrived. The grey line names that ship.
+  2. **Going back.** Then ask: *go back to the first ship you mentioned. what was its cargo?*
+     - Works when: it picks the first ship named in the very first answer (the *Arauco*, with coal from Lota) and the grey line says so.
+  3. **Changing topic.** Then ask: *What did the papers say about the 1906 Valparaiso earthquake?*
+     - Works when: the line says *Treated as a new question*, and the answer never mentions the ships or the wreck, not even to say it has nothing on them.
+  4. **"The first one".** New question. Ask: *What sports were played by the British community?* Then: *tell me more about the first one*.
+     - Works when: it continues with the first sport the answer listed (look at the answer's own order), not with an earlier question.
+  5. **A detail from earlier.** New question. Ask: *What shipping news appears in these issues?* Then: *who was the captain of that British steamer from Lota?*
+     - Works when: it names the captain if the passage gives one (it does: Captain Asplund of the *Arauco*), with a number you can tap.
+  6. **"Which did you mean?"** If a follow-up could mean two different things, the site may ask *Which did you mean?* with a button for each. Tap one.
+     - Works when: the buttons are easy to tap, and after tapping, the answer is about the one you chose.
+  7. **Citation numbers.** On any answer with several numbers, compare the numbers in the text with the **Sources** list.
+     - Works when: number 1 in the text opens the same passage as item 1 in the list, and so on. Passages the answer did not use are listed separately under *Matched the search, not used*, without numbers. You never see raw codes such as `[CITE:…]` or long strings of letters and digits in the answer.
+  8. **Stop.** Ask a long question and press Stop right away, before any words appear. Then ask another and press Stop halfway through the answer.
+     - Works when: stopped early, it says *Stopped before an answer was written. The passages it found are below.* (never "none of these answer the question"); stopped halfway, it keeps the words so far and adds *You stopped this answer.*
+  9. **New question and Undo.** After a few questions, press **New question**. A bar says *Conversation cleared · Undo* for about 10 seconds. Press Undo. Then try again and let the bar disappear, and reload the page.
+     - Works when: Undo brings back the whole conversation and any newspaper or date choice you had. Without Undo, the conversation is gone after a reload.
+  - Write down: for each part, the questions, the grey line you saw, and OK or PROBLEM.
+  - Notes:
+
+- [ ] **A8. Dates for all newspapers, and the supplement** (10 min) **(changed 2026-11-24)**.
+  1. Open **Newspapers and dates**. At the top there is a **Dates** block with *From year* and *To year*, and *Exact dates…*. Choose 1891 to 1891 without choosing a newspaper, and ask: *What ships arrived?*
+     - Works when: every source is from 1891, from any paper, and the label near the question box says *All newspapers, 1891*. Then choose one newspaper too and check both choices show and both apply.
+  2. Choose issues to ask about and find *The Chilian Times*, 14 March 1891. There are two: the issue and its **Supplement**. Open the supplement from Browse and from a citation.
+     - Works when: one of them is labelled *Supplement* in the list, in the citation, in the Sources list and at the top of the page viewer. You never see a file name (anything like "Chilean Times 2").
   - Notes:
 
 ## B. Browse: finding every mention

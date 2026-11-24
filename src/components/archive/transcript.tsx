@@ -14,6 +14,7 @@ import {
 } from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
 import { sweepTopic } from "@/lib/sweep-intent";
+import { editionName } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 import { AnswerText } from "./answer-text";
@@ -29,10 +30,13 @@ export function Transcript({
   turns,
   activeChunkId,
   onOpenSource,
+  onResolve,
 }: {
   turns: ChatTurn[];
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource, terms: string[]) => void;
+  /** Re-ask a "Which did you mean?" turn with the name the reader tapped. */
+  onResolve: (turn: ChatTurn, name: string) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +87,7 @@ export function Transcript({
                 isFirstQuestion={isFirstQuestion}
                 activeChunkId={activeChunkId}
                 onOpenSource={onOpenSource}
+                onResolve={onResolve}
               />
             );
           })}
@@ -98,12 +103,20 @@ function TurnBlock({
   isFirstQuestion,
   activeChunkId,
   onOpenSource,
+  onResolve,
 }: {
   turn: ChatTurn;
   isFirstQuestion: boolean;
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource, terms: string[]) => void;
+  onResolve: (turn: ChatTurn, name: string) => void;
 }) {
+  // Backend CHUNK 30. Checked defensively: saved turns come back from the
+  // reader's browser storage.
+  const candidates =
+    turn.clarify && Array.isArray(turn.clarify.candidates) && turn.clarify.candidates.length >= 2
+      ? turn.clarify.candidates.filter((c) => typeof c === "string").slice(0, 4)
+      : null;
   const normalizedAnswer = useMemo(
     () => normalizeCitations(trimPartialMarker(turn.answer)),
     [turn.answer],
@@ -133,6 +146,10 @@ function TurnBlock({
       </div>
 
       {turn.status === "retrieving" && <RetrievingNote scoped={turn.scope !== null} />}
+
+      {candidates && (
+        <ClarifyChoices candidates={candidates} onChoose={(name) => onResolve(turn, name)} />
+      )}
 
       {turn.status === "error" ? (
         <p className="flex items-start gap-2 text-[0.875rem] leading-relaxed text-destructive">
@@ -176,6 +193,7 @@ function TurnBlock({
       )}
 
       {turn.status === "complete" &&
+        !candidates &&
         !hasAnswerText &&
         turn.sources.length === 0 && <NoMatchNote scoped={turn.scope !== null} />}
 
@@ -183,7 +201,7 @@ function TurnBlock({
         <SearchedForNote turn={turn} isFirstQuestion={isFirstQuestion} />
       )}
 
-      {turn.status === "complete" && (
+      {turn.status === "complete" && !candidates && (
         <EveryMatchNote question={turn.question} intent={turn.intent} topics={turn.topics} />
       )}
 
@@ -420,7 +438,8 @@ function SourceRow({
             {source.publication ?? "Unidentified publication"}
           </span>
           <span className="numeric mt-0.5 block text-[0.75rem] text-muted-foreground">
-            {date ? `${date} · ` : ""}Page {source.page_number}
+            {date ? `${date} · ` : ""}
+            {editionName(source.edition) ? `${editionName(source.edition)} · ` : ""}Page {source.page_number}
             {muted && <span className="sr-only"> (not used in the answer)</span>}
           </span>
         </span>
@@ -474,7 +493,8 @@ function RelatedList({
                       {source.publication ?? "Unidentified publication"}
                     </span>
                     <span className="numeric text-[0.75rem] text-muted-foreground">
-                      {date ? `${date} · ` : ""}Page {source.page_number}
+                      {date ? `${date} · ` : ""}
+            {editionName(source.edition) ? `${editionName(source.edition)} · ` : ""}Page {source.page_number}
                     </span>
                   </span>
                 </button>
@@ -499,6 +519,47 @@ function RelatedList({
  * the search was phrased, whether a follow-up carried context, or whether a
  * later question was treated as a new topic.
  */
+/**
+ * "Which did you mean?" (W9 item 8, backend CHUNK 30). The server asks only
+ * when a follow-up's reference genuinely fits two or more things the last
+ * answer listed, instead of guessing. One 44 px chip per name; tapping one
+ * re-asks the same question with that name confirmed.
+ */
+function ClarifyChoices({
+  candidates,
+  onChoose,
+}: {
+  candidates: string[];
+  onChoose: (name: string) => void;
+}) {
+  return (
+    <div role="group" aria-label="Which did you mean?" className="flex flex-col gap-2">
+      <p className="measure text-[0.9375rem] leading-relaxed text-foreground">
+        Which did you mean?
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {candidates.map((name) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => onChoose(name)}
+            className={cn(
+              "inline-flex min-h-[44px] max-w-full items-center rounded-md border border-[var(--rule-strong)] bg-card px-3.5",
+              "text-left text-[0.875rem] text-foreground [overflow-wrap:anywhere]",
+              "transition-[background-color,transform] duration-[120ms] ease-[var(--ease-crisp)]",
+              "hover:bg-[var(--accent-subtle)] active:scale-[0.97] active:bg-[var(--accent-subtle)]",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
+              "motion-reduce:transition-none motion-reduce:active:scale-100",
+            )}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SearchedForNote({
   turn,
   isFirstQuestion,

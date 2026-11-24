@@ -2,6 +2,7 @@
 
 import type { ChatSource } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
+import { editionName } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,6 +28,7 @@ export function CitationChip({
   const label = [
     source.publication ?? "Unidentified publication",
     date,
+    editionName(source.edition),
     `p. ${source.page_number}`,
   ]
     .filter(Boolean)

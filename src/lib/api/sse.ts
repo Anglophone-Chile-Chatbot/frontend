@@ -137,6 +137,21 @@ function toEvent(name: string, data: unknown): ChatStreamEvent | null {
         state: state as ConversationState,
       };
     }
+    case "clarify": {
+      // Backend CHUNK 30: "which did you mean?". At most 4 names, each a
+      // short non-empty string; anything else is not a usable question.
+      const candidates = Array.isArray(payload.candidates)
+        ? payload.candidates
+            .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+            .slice(0, 4)
+        : [];
+      if (candidates.length < 2) return null;
+      return {
+        type: "clarify",
+        question: typeof payload.question === "string" ? payload.question : "",
+        candidates,
+      };
+    }
     case "done":
       return { type: "done" };
     case "error": {

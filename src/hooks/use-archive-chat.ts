@@ -69,6 +69,12 @@ export interface ChatTurn {
   followUp?: boolean;
   /** Opaque compact conversation state from the server's `state` SSE event. */
   state?: ConversationState;
+  /**
+   * Backend CHUNK 30: the server asked "Which did you mean?" instead of
+   * answering. Such a turn has no answer and no sources, so it never enters
+   * the follow-up history; tapping a name re-asks with `resolve`.
+   */
+  clarify?: { candidates: string[] };
   status: "retrieving" | "streaming" | "complete" | "stopped" | "error";
   /** User-facing error copy, set only when `status === "error"`. */
   error?: string;
@@ -87,8 +93,15 @@ export interface UseArchiveChat {
   turns: ChatTurn[];
   /** True from submit until the stream terminates. */
   isBusy: boolean;
-  /** Ask a question, optionally scoped to chosen documents. */
-  ask: (question: string, scope?: ChatScope | null) => Promise<void>;
+  /**
+   * Ask a question, optionally scoped to chosen documents. `resolve` answers a
+   * "Which did you mean?" turn (whose id is `replaces`, removed on re-ask).
+   */
+  ask: (
+    question: string,
+    scope?: ChatScope | null,
+    options?: { resolve?: string; replaces?: string },
+  ) => Promise<void>;
   stop: () => void;
   reset: () => void;
   /** Put back turns saved in the reader's browser. Ignored while one is streaming. */
@@ -133,9 +146,19 @@ export function useArchiveChat(): UseArchiveChat {
   }, []);
 
   const ask = useCallback(
-    async (question: string, scope: ChatScope | null = null) => {
+    async (
+      question: string,
+      scope: ChatScope | null = null,
+      options?: { resolve?: string; replaces?: string },
+    ) => {
       const trimmed = question.trim();
       if (trimmed.length === 0 || abortRef.current) return;
+      const replaces = options?.replaces;
+      if (replaces) {
+        // The clarify turn is answered by this one; drop it from the view and
+        // from what the next history is built from.
+        turnsRef.current = turnsRef.current.filter((turn) => turn.id !== replaces);
+      }
 
       const id =
         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -143,7 +166,7 @@ export function useArchiveChat(): UseArchiveChat {
           : `turn-${Date.now()}`;
 
       setTurns((current) => [
-        ...current,
+        ...(replaces ? current.filter((turn) => turn.id !== replaces) : current),
         {
           id,
           question: trimmed,
@@ -175,6 +198,7 @@ export function useArchiveChat(): UseArchiveChat {
         if (history !== undefined) {
           payload.history = history;
         }
+        if (options?.resolve) payload.resolve = options.resolve;
 
         const response = await fetch("/api/chat", {
           method: "POST",
@@ -225,6 +249,8 @@ export function useArchiveChat(): UseArchiveChat {
               patchTurn(id, { answer, status: "streaming" });
             } else if (event.type === "state") {
               patchTurn(id, { state: event.state });
+            } else if (event.type === "clarify") {
+              patchTurn(id, { clarify: { candidates: event.candidates }, status: "complete" });
             } else if (event.type === "error") {
               patchTurn(id, {
                 status: "error",

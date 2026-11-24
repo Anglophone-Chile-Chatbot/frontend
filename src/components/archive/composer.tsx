@@ -110,7 +110,7 @@ export function Composer({
             disabled={!isBusy && !canSubmit}
             aria-label={isBusy ? "Stop generating" : "Send question"}
             className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-md",
               "transition-[background-color,opacity,transform] duration-[120ms]",
               "ease-[var(--ease-crisp)] active:scale-[0.94]",
               isBusy

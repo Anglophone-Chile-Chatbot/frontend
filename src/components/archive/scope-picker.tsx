@@ -13,6 +13,7 @@ import {
 import type { DocumentListResponse, DocumentSummary } from "@/lib/api/types";
 import { MAX_SCOPE_DOCUMENTS } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
+import { issueLabels } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -52,6 +53,8 @@ export function ScopePicker({
   const [filter, setFilter] = useState("");
   const controllerRef = useRef<AbortController | null>(null);
 
+  // W9 item 7: never the file name; see lib/editions.ts.
+  const labels = useMemo(() => issueLabels(documents), [documents]);
   const selectedIds = useMemo(
     () => new Set(selected.map((doc) => doc.document_id)),
     [selected],
@@ -189,6 +192,7 @@ export function ScopePicker({
                   <DocumentRow
                     key={doc.document_id}
                     document={doc}
+                    label={labels.get(doc.document_id) ?? null}
                     isSelected={selectedIds.has(doc.document_id)}
                     onToggle={toggle}
                   />
@@ -246,10 +250,13 @@ export function ScopePicker({
 
 function DocumentRow({
   document,
+  label,
   isSelected,
   onToggle,
 }: {
   document: DocumentSummary;
+  /** "Supplement", "Extra" or "Issue 1/2" for a same-day pair (W9 item 7). */
+  label: string | null;
   isSelected: boolean;
   onToggle: (document: DocumentSummary) => void;
 }) {
@@ -307,9 +314,9 @@ function DocumentRow({
                 reader scoping their question to one 1891-03-14 issue has no way
                 to know whether they picked the one they meant — and the answer
                 they get back would silently be about the other. */}
-            {document.edition_label && (
+            {label && (
               <span className="numeric text-[0.75rem] text-muted-foreground">
-                {document.edition_label}
+                {label}
               </span>
             )}
           </span>

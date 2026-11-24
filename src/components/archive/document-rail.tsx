@@ -15,6 +15,7 @@ import { useRailCollapsed } from "@/hooks/use-rail-collapsed";
 import type { DocumentListResponse, DocumentSummary } from "@/lib/api/types";
 import { formatIssueDateShort } from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
+import { issueLabels } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -213,6 +214,8 @@ export function RailBody({
   onSelectTurn?: () => void;
 }) {
   const scopedIds = new Set((scope ?? []).map((doc) => doc.document_id));
+  // W9 item 7: never the file name; see lib/editions.ts.
+  const scopeLabels = issueLabels(scope ?? []);
 
   const goToTurn = (id: string) => {
     onSelectTurn?.();
@@ -244,9 +247,9 @@ export function RailBody({
                   <span className="font-heading block truncate text-[0.8125rem] text-foreground">
                     {doc.publication ?? doc.title}
                   </span>
-                  {(formatIssueDateShort(doc.issue_date) || doc.edition_label) && (
+                  {(formatIssueDateShort(doc.issue_date) || scopeLabels.get(doc.document_id)) && (
                     <span className="numeric block truncate text-[0.6875rem] text-muted-foreground">
-                      {[formatIssueDateShort(doc.issue_date), doc.edition_label]
+                      {[formatIssueDateShort(doc.issue_date), scopeLabels.get(doc.document_id)]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
@@ -353,6 +356,7 @@ function RecentDocuments({
 
   if (status === "loading") return null;
 
+  const recentLabels = issueLabels(documents);
   if (status === "error" || documents.length === 0) {
     return (
       <p className="px-2.5 py-1 text-[0.75rem] leading-relaxed text-muted-foreground">
@@ -408,9 +412,9 @@ function RecentDocuments({
                   appending it here costs the other rows nothing. Truncated
                   rather than wrapped: the rail is a fixed 240px column and a
                   wrapping stem would push the rows to uneven heights. */}
-              {(date || doc.edition_label) && (
+              {(date || recentLabels.get(doc.document_id)) && (
                 <span className="numeric w-full truncate text-[0.6875rem] text-muted-foreground">
-                  {[date, doc.edition_label].filter(Boolean).join(" · ")}
+                  {[date, recentLabels.get(doc.document_id)].filter(Boolean).join(" · ")}
                 </span>
               )}
             </>

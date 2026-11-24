@@ -25,9 +25,7 @@ pre-prune text: `git show 064ed33:plans.md`; older: `git show 660afe3:plans.md`.
 
 Nothing on the site blocks the GPU work (backend CHUNK 29), which is the project's critical path right now.
 
-1. **W9 below: the first tester report (2026-11-23).** Citation numbers, raw citation codes, Stop, the "Searched
-   for" line, dates in the filter panel, New question, the supplement label. Goes with backend CHUNK 30 (the memory
-   fixes). Keep `TESTING.md` current in the same turn as each reader-visible change.
+1. **W9's browser check** (built 2026-11-24; see W9 below). Then the second contributor re-runs `TESTING.md` A7/A8.
 2. **Require CI before `main` deploys**, now that a second contributor exists: branch protection on this public repo
    (require a PR and the `lint-typecheck-build` check, admins exempt). One click for Shakib in GitHub settings;
    Claude Code's permission guard blocked doing it.
@@ -41,50 +39,15 @@ Nothing on the site blocks the GPU work (backend CHUNK 29), which is the project
 7. **After the bulk run** (backend CHUNK 28 tier 3): credit line per scan source, "Also at the British Library",
    "About this paper", "Cite this issue", later place/publisher/decade filters. Mobile-first, `TESTING.md` same turn.
 
-## W9 — answer, source and control fixes from the first tester report. PLANNED 2026-11-23
+## W9 — built 2026-11-24 (with backend CHUNK 30). One check left
 
-Each item was checked against the code before planning. The memory and reference bugs are backend CHUNK 30; these are
-the browser's share. Every item is designed at 375 px first, with 44 px targets, and gets its `TESTING.md` line the
-same turn it ships.
-
-1. **Citation numbers must match the Sources list.** Today the chips number by first citation in the answer
-   (`assignCitationOrdinals`) while `SourceList` numbers by arrival order (`index + 1`), so "[1]" and "item 1" are
-   different passages whenever a passage goes unused. Fix: the list shows cited passages first, in citation order,
-   with the same number as the chip; unused ones follow under a small "Matched the search, not used" heading,
-   unnumbered, instead of greyed rows mixed in. Computed at render time, so chats already saved fix themselves.
-2. **Never show raw citation codes.** One `normalizeCitations()` in `lib/citations.ts`, run before the ordinals,
-   `remarkCite` and `classifySourceUse`, splits `[CITE:a, b]`, `[CITE:a; b]` and `[CITE:a, CITE:b]` into separate
-   markers, and hides any leftover bracket of bare ids. That also stops those passages being greyed as "not used".
-   The server will normalise new answers too (CHUNK 30 step 2); this covers chats saved before that.
-3. **Stop says it stopped.** New turn status `stopped` (today an abort is marked `complete`). With text: keep it and
-   add a quiet "You stopped this answer." Before any text: no "None of these answers the question" (which claims the
-   archive has no answer); say "Stopped before an answer was written. The passages it found are below." with the
-   list headed "Passages found". `session-store.ts` keeps `stopped` as is; follow-up history skips turns stopped
-   before any text (already the case, since their answer is empty).
-4. **The "Searched for" line on every answer.** Today it only shows when a follow-up was rewritten. Show it always,
-   small and muted: a follow-up shows the rewritten question; a first or new-topic question shows the search words
-   (first five terms); and a question asked mid-conversation that the server treated as a new subject says "Treated
-   as a new question". That last case is the signal the tester was missing (backend CHUNK 30, finding 5).
-5. **Dates are hard to find in "Newspapers and dates".** The controls exist but only inside each newspaper once it's
-   expanded (year chips and "Custom dates…" per paper). Add an archive-wide "Dates" block at the top of the panel:
-   from-year and to-year selects spanning the archive's years, plus custom dates, applying across all papers. Keep
-   the per-paper chips. Check the chip and scope labels still read right with both kinds set.
-6. **New question shouldn't silently delete the saved conversation.** Today it clears the transcript and deletes the
-   saved copy at once. No confirm dialog (that's friction); instead a "Conversation cleared · Undo" bar for 10
-   seconds, and the saved copy is deleted only when the bar closes or the reader asks the next question.
-7. **Say "Supplement", never a file name.** The picker's edition label is the document's file name, so the 14 Mar
-   1891 supplement shows as "Chilean TImes 1" (a typo from the original file). Once the backend returns `edition`
-   (CHUNK 30 step 4), show "Supplement" in the picker, citation chips, the Sources list and the viewer header, and
-   drop file names from anything a reader sees. Two same-day issues with no edition fall back to "Issue 1 / Issue 2"
-   by page count order, never the file name.
-8. **"Which did you mean?" chips** (with backend CHUNK 30 step 3). On a `clarify` frame, show the question and one
-   44 px chip per name; tapping one re-asks the reader's question with that name filled in. No answer box, no Sources
-   list for that turn, and it isn't saved as an answered turn in the follow-up history.
-9. **`TESTING.md` A7 rewritten** to match: the tester's conversations become the steps (wreck → first ship → topic
-   switch; sports list → "the first one"; Stop before and during an answer), each marked changed.
-
-Build: items 1-4 and 6 need nothing from the backend and can ship first. Items 5, 7 and 8 after. A helper can build
-it from this spec in its own working copy; review the diff and check at 375 px before merge.
+All nine items shipped: one citation numbering for chips and the Sources list ("Matched the search, not used"
+for the rest), raw citation codes hidden, an honest Stop, the "Searched for" / "Treated as a new question" line,
+an archive-wide Dates block, New question with a 10-second Undo, "Supplement" instead of file names (with an
+"Issue 1 / Issue 2" fallback), the "Which did you mean?" chips, and `TESTING.md` A7/A8 rewritten. Record:
+git history and `infra/BUILT.md`.
+- [ ] **Browser check at 375 px and on desktop** of the new pieces (Undo bar, clarify chips, Dates block,
+  Stopped states, the split Sources list). Needs a yes first; then hand it to a helper for a short written verdict.
 
 **Dropped / parked:** react-pdf (PDFs never reach the server; drop unless a tester asks). Turnstile waits on
 Cloudflare, which waits on a domain.

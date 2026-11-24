@@ -207,6 +207,16 @@ export function ChatView() {
     [pendingClear, persistence, ask, scope, hasFilters, filters],
   );
 
+  // Backend CHUNK 30: a tapped "Which did you mean?" chip re-asks the same
+  // question under the scope it was asked in, with the name confirmed, and
+  // replaces the clarify turn (it never becomes follow-up history).
+  const resolveClarify = useCallback(
+    (turn: ChatTurn, name: string) => {
+      void ask(turn.question, turn.scope, { resolve: name, replaces: turn.id });
+    },
+    [ask],
+  );
+
   const isEmpty = turns.length === 0;
   const hasNotice =
     !isEmpty && (persistence.remainingMs !== null || persistence.saveFailed);
@@ -274,6 +284,7 @@ export function ChatView() {
             turns={turns}
             activeChunkId={active?.chunk_id ?? null}
             onOpenSource={openSource}
+            onResolve={resolveClarify}
           />
         )}
 

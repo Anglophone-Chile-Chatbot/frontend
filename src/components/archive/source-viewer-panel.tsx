@@ -5,6 +5,7 @@ import { BookOpen, X } from "lucide-react";
 import { useSourcePage } from "@/hooks/use-source-page";
 import type { ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
+import { editionName } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 import { ReadIssueLink } from "./read-issue-link";
@@ -43,6 +44,9 @@ export function SourceViewerPanel({
 
   const dateline = page ? formatIssueDate(page.issue_date) : null;
   const publication = page?.publication ?? source?.publication ?? null;
+  // W9 item 7: "Supplement" beside the date, so the 14 Mar 1891 supplement's
+  // header is never identical to the main issue's.
+  const edition = editionName(page?.edition ?? source?.edition);
 
   return (
     // Width is `--panel-w` (globals.css): wider when the left rail is
@@ -60,6 +64,8 @@ export function SourceViewerPanel({
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.8125rem] text-muted-foreground">
                 {dateline && <time className="numeric">{dateline}</time>}
                 {dateline && <span aria-hidden>·</span>}
+            {edition && <span>{edition}</span>}
+            {edition && <span aria-hidden>·</span>}
                 <span className="numeric">
                   Page {source.page_number ?? page?.page_number}
                   {page ? ` of ${page.document_page_count}` : ""}

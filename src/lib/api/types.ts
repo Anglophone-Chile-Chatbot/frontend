@@ -16,6 +16,8 @@ export interface SearchResult {
   publication: string | null;
   /** ISO date (YYYY-MM-DD), or null when the issue date could not be read. */
   issue_date: string | null;
+  /** "supplement" / "extra" / null for the main issue (backend CHUNK 30). */
+  edition?: string | null;
   content: string;
   rank: number;
 }
@@ -59,6 +61,8 @@ export interface ChatSource {
   page_number: number;
   publication: string | null;
   issue_date: string | null;
+  /** "supplement" / "extra" / null for the main issue (backend CHUNK 30). */
+  edition?: string | null;
   /** Full chunk text — the passage to highlight when this citation is opened. */
   content: string;
 }
@@ -137,6 +141,12 @@ export type ChatStreamEvent =
     }
   | { type: "delta"; text: string }
   | { type: "state"; state: ConversationState }
+  /**
+   * Backend CHUNK 30: the follow-up's reference fits two or more things the
+   * conversation listed, so the server asks instead of guessing. No sources,
+   * no answer and no state follow; the reader taps a name to re-ask.
+   */
+  | { type: "clarify"; question: string; candidates: string[] }
   | { type: "done" }
   | { type: "error"; message: string };
 
@@ -187,6 +197,8 @@ export interface DocumentSummary {
    * one would be inventing a citable fact. Present it as a source, never as an
    * edition.
    */
+  /** "supplement" / "extra" / null for the main issue (backend CHUNK 30). */
+  edition?: string | null;
   edition_label: string | null;
 }
 
@@ -228,6 +240,8 @@ export interface DocumentPagesResponse {
    * for these issues — so without it a reader who opens one of the two
    * 1891-03-14 issues sees a heading identical to the other's.
    */
+  /** "supplement" / "extra" / null for the main issue (backend CHUNK 30). */
+  edition?: string | null;
   edition_label: string | null;
   /** `pages.length`, sent explicitly rather than inferred by the client. */
   page_count: number;
@@ -259,6 +273,8 @@ export interface ChatRequestBody {
   date_to?: string | null;
   undated?: boolean;
   history?: ChatHistory;
+  /** Backend CHUNK 30: the name tapped on a "Which did you mean?" chip. */
+  resolve?: string;
 }
 
 /** An issue count for one year within a publication. */
@@ -344,6 +360,8 @@ export interface PageDetail {
   title: string;
   publication: string | null;
   issue_date: string | null;
+  /** "supplement" / "extra" / null for the main issue (backend CHUNK 30). */
+  edition?: string | null;
   language: string;
   /** Full OCR text of the page; null if extraction produced nothing. */
   raw_text: string | null;

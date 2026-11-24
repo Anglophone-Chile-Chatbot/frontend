@@ -7,6 +7,7 @@ import type { CatalogueGroup } from "@/hooks/use-catalogue";
 import type { ArchiveFilterState, DocumentSummary } from "@/lib/api/types";
 import { formatScopeLabel, hasActiveFilters } from "@/lib/archive-filters";
 import { formatIssueDateShort } from "@/lib/citations";
+import { issueLabels } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -113,9 +114,17 @@ export function DocumentCatalogue({
             </div>
 
             <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-              {group.issues.map((issue) => (
-                <IssueCard key={issue.document_id} issue={issue} />
-              ))}
+              {(() => {
+                // W9 item 7: never the file name; see lib/editions.ts.
+                const labels = issueLabels(group.issues);
+                return group.issues.map((issue) => (
+                  <IssueCard
+                    key={issue.document_id}
+                    issue={issue}
+                    label={labels.get(issue.document_id) ?? null}
+                  />
+                ));
+              })()}
             </ul>
           </section>
         ))}
@@ -156,7 +165,7 @@ export function DocumentCatalogue({
  * pair; telling them apart is CHUNK 4's job, but nothing here may assume a
  * title and a date identify an issue.
  */
-function IssueCard({ issue }: { issue: DocumentSummary }) {
+function IssueCard({ issue, label }: { issue: DocumentSummary; label: string | null }) {
   const date = formatIssueDateShort(issue.issue_date);
 
   // A document with no pages ingested cannot be opened. It is still listed —
@@ -166,7 +175,7 @@ function IssueCard({ issue }: { issue: DocumentSummary }) {
     return (
       <li className="animate-rise">
         <div className="rounded-md border border-dashed bg-card/50 px-3 py-2.5">
-          <IssueMeta issue={issue} date={date} />
+          <IssueMeta issue={issue} date={date} label={label} />
           <p className="mt-1 text-[0.75rem] text-muted-foreground">
             No pages ingested yet — nothing to open.
           </p>
@@ -187,7 +196,7 @@ function IssueCard({ issue }: { issue: DocumentSummary }) {
           "focus-visible:outline-[var(--accent)]",
         )}
       >
-        <IssueMeta issue={issue} date={date} />
+        <IssueMeta issue={issue} date={date} label={label} />
         <p className="numeric mt-1 text-[0.75rem] text-muted-foreground">
           {issue.page_count === 1 ? "1 page" : `${issue.page_count} pages`}
         </p>
@@ -217,9 +226,11 @@ function IssueCard({ issue }: { issue: DocumentSummary }) {
 function IssueMeta({
   issue,
   date,
+  label,
 }: {
   issue: DocumentSummary;
   date: string | null;
+  label: string | null;
 }) {
   return (
     <>
@@ -237,13 +248,8 @@ function IssueMeta({
           </span>
         )}
       </p>
-      {issue.edition_label && (
-        <p className="mt-0.5 flex items-baseline gap-1.5 text-[0.75rem] leading-snug">
-          <span className="eyebrow shrink-0">Source</span>
-          <span className="numeric truncate text-muted-foreground">
-            {issue.edition_label}
-          </span>
-        </p>
+      {label && (
+        <p className="mt-0.5 text-[0.75rem] leading-snug text-muted-foreground">{label}</p>
       )}
     </>
   );
