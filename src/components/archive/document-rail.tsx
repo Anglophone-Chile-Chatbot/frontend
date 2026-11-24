@@ -80,7 +80,7 @@ export function DocumentRail({
           <RailButton
             label="Collapse the sidebar"
             onClick={() => setCollapsed(true)}
-            className="w-10 justify-center px-0"
+            className="w-11 justify-center px-0"
           >
             <PanelLeftClose className="h-4 w-4" />
           </RailButton>
@@ -106,7 +106,7 @@ export function DocumentRail({
         <RailButton
           label="Expand the sidebar"
           onClick={() => setCollapsed(false)}
-          className="w-10 justify-center px-0"
+          className="w-11 justify-center px-0"
         >
           <PanelLeftOpen className="h-4 w-4" />
         </RailButton>
@@ -115,7 +115,7 @@ export function DocumentRail({
             label="New question"
             onClick={onNewChat}
             disabled={turns.length === 0}
-            className="w-10 justify-center px-0"
+            className="w-11 justify-center px-0"
           >
             <PenSquare className="h-4 w-4" />
           </RailButton>
@@ -128,7 +128,7 @@ export function DocumentRail({
                 : "This session"
             }
             onClick={() => setCollapsed(false)}
-            className="relative w-10 justify-center px-0"
+            className="relative w-11 justify-center px-0"
           >
             <MessageSquare className="h-4 w-4" />
             {turns.length > 0 && (
@@ -144,7 +144,7 @@ export function DocumentRail({
         <RailButton
           label={scoped ? "Documents — asking within a selection" : "Documents"}
           onClick={onOpenPicker ?? (() => setCollapsed(false))}
-          className="relative w-10 justify-center px-0"
+          className="relative w-11 justify-center px-0"
         >
           <Library className="h-4 w-4" />
           {scoped && (
@@ -159,7 +159,7 @@ export function DocumentRail({
   );
 }
 
-/** A 40px rail button with a native tooltip. Icon-only when narrow. */
+/** A 44px rail button with a native tooltip. Icon-only when narrow. */
 function RailButton({
   label,
   onClick,
@@ -181,7 +181,7 @@ function RailButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex h-10 items-center gap-2 rounded-md text-foreground",
+        "flex h-11 items-center gap-2 rounded-md text-foreground",
         "transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
         "hover:bg-secondary active:bg-secondary",
         "focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
@@ -269,7 +269,7 @@ export function RailBody({
               onClick={onNewChat}
               disabled={turns.length === 0}
               className={cn(
-                "flex min-h-[44px] w-full items-center gap-2 rounded-md px-2.5 lg:min-h-[38px]",
+                "flex min-h-[44px] w-full items-center gap-2 rounded-md px-2.5",
                 "text-[0.8125rem] text-foreground transition-colors duration-[120ms]",
                 "ease-[var(--ease-crisp)] hover:bg-secondary active:bg-secondary",
                 "disabled:pointer-events-none disabled:opacity-45",
@@ -295,7 +295,7 @@ export function RailBody({
                       type="button"
                       onClick={() => goToTurn(turn.id)}
                       className={cn(
-                        "flex min-h-[44px] w-full items-start gap-2 rounded-md px-2.5 py-2 text-left lg:min-h-[34px] lg:py-1.5",
+                        "flex min-h-[44px] w-full items-start gap-2 rounded-md px-2.5 py-2 text-left",
                         "text-[0.8125rem] leading-snug text-foreground/85 transition-colors",
                         "duration-[120ms] ease-[var(--ease-crisp)] hover:bg-secondary active:bg-secondary",
                       )}
@@ -370,14 +370,14 @@ function RecentDocuments({
   // two surfaces agree rather than teaching the reader two different marks.
   const rowClass = (isScoped: boolean) =>
     cn(
-      "flex min-h-[44px] w-full flex-col items-start justify-center gap-0 rounded-md px-2.5 py-1.5 lg:min-h-[34px]",
+      "flex min-h-[44px] w-full flex-col items-start justify-center gap-0 rounded-md px-2.5 py-1.5",
       "text-left transition-colors duration-[120ms] ease-[var(--ease-crisp)]",
       "hover:bg-secondary",
       isScoped &&
         "border-l-2 border-[var(--accent)] bg-[var(--accent)]/[0.06] pl-2",
     );
   const footerClass = cn(
-    "mt-1.5 flex min-h-[44px] w-full items-center gap-2 rounded-md px-2.5 lg:min-h-[34px]",
+    "mt-1.5 flex min-h-[44px] w-full items-center gap-2 rounded-md px-2.5",
     "text-[0.75rem] text-muted-foreground transition-colors duration-[120ms]",
     "ease-[var(--ease-crisp)] hover:bg-secondary hover:text-foreground",
   );

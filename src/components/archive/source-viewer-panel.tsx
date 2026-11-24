@@ -85,7 +85,7 @@ export function SourceViewerPanel({
               onClick={onClose}
               aria-label="Close the document panel"
               className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-md",
                 "text-muted-foreground transition-colors duration-[120ms]",
                 "ease-[var(--ease-crisp)] hover:bg-secondary hover:text-foreground",
               )}

@@ -166,10 +166,10 @@ export function NewspaperRail({
       <ArchiveDatesBlock
         years={archiveYears(facets)}
         filters={filters}
-        onSelectDateRange={(from, to) => {
-          onSelectDateRange(from, to);
-          onItemSelect?.();
-        }}
+        // No onItemSelect here: on the phone that closes the panel, and a
+        // reader setting From year must still be able to set To year (live
+        // check 2026-11-24: the panel closed on the first pick).
+        onSelectDateRange={onSelectDateRange}
       />
 
       <div className="px-3.5 pt-3 pb-2">
