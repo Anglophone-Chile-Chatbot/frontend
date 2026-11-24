@@ -154,6 +154,10 @@ export function useArchiveChat(): UseArchiveChat {
       const trimmed = question.trim();
       if (trimmed.length === 0 || abortRef.current) return;
       const replaces = options?.replaces;
+      // A clarification is answered in the context it was asked in: history is
+      // built from the turns before it, even if the reader asked more since.
+      const replacedAt = replaces ? turnsRef.current.findIndex((turn) => turn.id === replaces) : -1;
+      const historyTurns = replacedAt >= 0 ? turnsRef.current.slice(0, replacedAt) : null;
       if (replaces) {
         // The clarify turn is answered by this one; drop it from the view and
         // from what the next history is built from.
@@ -194,7 +198,7 @@ export function useArchiveChat(): UseArchiveChat {
           if (scope.date_to) payload.date_to = scope.date_to;
           if (scope.undated) payload.undated = true;
         }
-        const history = buildHistory(turnsRef.current);
+        const history = buildHistory(historyTurns ?? turnsRef.current);
         if (history !== undefined) {
           payload.history = history;
         }
@@ -209,6 +213,12 @@ export function useArchiveChat(): UseArchiveChat {
 
         if (!response.ok || !response.body) {
           const { code, message } = await readError(response);
+          // Stop pressed while the error body was being read: readError
+          // swallows the abort, so check the signal before calling it a failure.
+          if (controller.signal.aborted) {
+            patchTurn(id, { status: "stopped" });
+            return;
+          }
           const errorText =
             code === "RATE_LIMITED" || code === "SERVICE_UNAVAILABLE"
               ? (message ?? ERROR_COPY[code])

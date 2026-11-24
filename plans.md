@@ -46,8 +46,12 @@ for the rest), raw citation codes hidden, an honest Stop, the "Searched for" / "
 an archive-wide Dates block, New question with a 10-second Undo, "Supplement" instead of file names (with an
 "Issue 1 / Issue 2" fallback), the "Which did you mean?" chips, and `TESTING.md` A7/A8 rewritten. Record:
 git history and `infra/BUILT.md`.
-- [ ] **Browser check at 375 px and on desktop** of the new pieces (Undo bar, clarify chips, Dates block,
-  Stopped states, the split Sources list). Needs a yes first; then hand it to a helper for a short written verdict.
+- Browser check done 2026-11-24 (Antigravity, 375/390/412 px and 1352 px): all flows OK; fixed what it found
+  (adjacent citation chips stealing taps, the Dates panel closing on the first pick, desktop controls under 44 px).
+  Code review the same day (Codex): six edge cases fixed. Not yet seen live: the "Which did you mean?" chips.
+- [ ] **Small, no live case today:** the "Issue 1 / Issue 2" fallback shows in lists but not in the reader header
+  (the reader only knows its own issue). Needs the sibling group passed in (or a backend field) once two same-day
+  issues without an edition exist.
 
 **Dropped / parked:** react-pdf (PDFs never reach the server; drop unless a tester asks). Turnstile waits on
 Cloudflare, which waits on a domain.

@@ -111,7 +111,11 @@ export function trimPartialMarker(streaming: string): string {
   if (open === -1) return streaming;
 
   const tail = streaming.slice(open);
-  if (tail.includes("]") || tail.includes("\n")) return streaming;
+  if (tail.includes("]")) return streaming;
+  // An unfinished "[CITE:" is hidden even across a line break (it can never be
+  // prose); a stray "[" followed by a newline is ordinary text.
+  if (tail.toUpperCase().startsWith("[CITE:")) return streaming.slice(0, open);
+  if (tail.includes("\n")) return streaming;
 
   // Trim only if the tail is still on its way to being a marker: either a
   // prefix of "[CITE:" itself, or a complete "[CITE:" plus a partial id/list. A

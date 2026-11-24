@@ -373,6 +373,7 @@ export function NewspaperRail({
 
                     {isRangeOpen && (
                       <CustomDateRangePicker
+                        key={`${filters.dateFrom}|${filters.dateTo}`}
                         idPrefix={`rail-${pub.publication.replace(/[^A-Za-z0-9]+/g, "-")}`}
                         filters={filters}
                         onApply={(from, to) => {
@@ -527,6 +528,9 @@ function ArchiveDatesBlock({
         </button>
         {customOpen && (
           <CustomDateRangePicker
+            // Remount when the applied range changes (e.g. from the year
+            // selects), so the inputs never hold stale dates.
+            key={`${filters.dateFrom}|${filters.dateTo}`}
             idPrefix="archive"
             filters={filters}
             onApply={onSelectDateRange}
@@ -559,7 +563,9 @@ function CustomDateRangePicker({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onApply(from || null, to || null);
+        // Reversed bounds are swapped rather than applied as an empty range.
+        const [a, b] = from && to && from > to ? [to, from] : [from, to];
+        onApply(a || null, b || null);
       }}
       className="mt-1 flex flex-col gap-2 rounded-md border bg-card/60 p-2.5 text-xs"
     >

@@ -307,11 +307,13 @@ function SourceList({
       <div className="mt-1">
         <p className="eyebrow mb-2">Sources</p>
         <ol className="flex flex-col">
-          {sources.map((source, index) => (
+          {sources.map((source) => (
             <SourceRow
               key={source.chunk_id}
               source={source}
-              ordinal={index + 1}
+              // The chip's number once the answer has cited it, else none:
+              // arrival order would disagree with the chips mid-stream.
+              ordinal={numbering.ordinals.get(source.chunk_id)}
               isActive={activeChunkId === source.chunk_id}
               onOpen={() => onOpenSource(source, terms)}
             />
