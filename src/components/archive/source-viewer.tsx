@@ -147,7 +147,10 @@ function SheetGrip({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div
       aria-hidden
-      className="absolute inset-x-0 top-0 z-10 flex h-7 cursor-grab touch-none justify-center pt-2 sm:hidden"
+      // Centred, not full width: a full-width strip sat over the close button
+      // (top-right, 44px) and swallowed taps on its upper half (live phone
+      // check 2026-11-24). 8rem leaves both corners free on a 375px screen.
+      className="absolute top-0 left-1/2 z-10 flex h-7 w-32 -translate-x-1/2 cursor-grab touch-none justify-center pt-2 sm:hidden"
       onPointerDown={(event) => {
         start.current = { y: event.clientY, t: performance.now() };
         event.currentTarget.setPointerCapture(event.pointerId);
