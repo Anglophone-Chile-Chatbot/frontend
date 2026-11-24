@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import {
@@ -10,12 +11,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useArchiveChat } from "@/hooks/use-archive-chat";
+import { useArchiveChat, type ChatTurn } from "@/hooks/use-archive-chat";
 import { useArchiveFilters } from "@/hooks/use-archive-filters";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSessionPersistence } from "@/hooks/use-session-persistence";
-import type { ChatSource, DocumentSummary } from "@/lib/api/types";
-import { formatScopeLabel, hasActiveFilters } from "@/lib/archive-filters";
+import type { ArchiveFilterState, ChatSource, DocumentSummary } from "@/lib/api/types";
+import {
+  formatScopeLabel,
+  hasActiveFilters,
+  serializeFilterParams,
+} from "@/lib/archive-filters";
 import { cn } from "@/lib/utils";
 
 import { ChatEmptyState } from "./chat-empty-state";
@@ -28,6 +33,23 @@ import { SessionNotice } from "./session-notice";
 import { SourceViewer } from "./source-viewer";
 import { SourceViewerPanel } from "./source-viewer-panel";
 import { Transcript } from "./transcript";
+import { UndoClearBar } from "./undo-clear-bar";
+
+interface PendingClear {
+  turns: ChatTurn[];
+  scope: DocumentSummary[];
+  filters: ArchiveFilterState;
+}
+
+function filtersEqual(a: ArchiveFilterState, b: ArchiveFilterState): boolean {
+  return (
+    a.undated === b.undated &&
+    a.dateFrom === b.dateFrom &&
+    a.dateTo === b.dateTo &&
+    a.publications.length === b.publications.length &&
+    a.publications.every((pub, i) => pub === b.publications[i])
+  );
+}
 
 /**
  * The public chatbot.
@@ -44,6 +66,9 @@ import { Transcript } from "./transcript";
  * each turn records the scope it was actually asked under.
  */
 export function ChatView() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { turns, isBusy, ask, stop, reset, restore } = useArchiveChat();
   const {
     filters,
@@ -58,6 +83,8 @@ export function ChatView() {
   /** Bumped on every citation open, so re-opening resets the remembered zoom. */
   const [openNonce, setOpenNonce] = useState(0);
   const [scope, setScope] = useState<DocumentSummary[]>([]);
+  const [pendingClear, setPendingClear] = useState<PendingClear | null>(null);
+  const [clearAnnouncement, setClearAnnouncement] = useState("");
   const [isPickerOpen, setPickerOpen] = useState(false);
   const [isNewspapersOpen, setNewspapersOpen] = useState(false);
   const [isMenuOpen, setMenuOpen] = useState(false);
@@ -68,14 +95,16 @@ export function ChatView() {
   const isDesktop = useMediaQuery("(min-width: 64rem)");
 
   const persistence = useSessionPersistence({
-    turns,
-    scope,
-    isBusy,
+    turns: pendingClear ? pendingClear.turns : turns,
+    scope: pendingClear ? pendingClear.scope : scope,
+    isBusy: isBusy || pendingClear !== null,
     onRestore: (savedTurns, savedScope) => {
+      setPendingClear(null);
       restore(savedTurns);
       setScope(savedScope);
     },
     onExpired: () => {
+      setPendingClear(null);
       reset();
       setActive(null);
       setActiveTerms([]);
@@ -91,10 +120,59 @@ export function ChatView() {
     setOpenNonce((n) => n + 1);
   }, []);
 
-  // The rail's "New question" clears the transcript — close any open
-  // citation too, since it would otherwise point at a turn that no longer
-  // exists once the panel is reopened.
+  // The rail's "New question" clears the transcript immediately and holds a
+  // 10-second Undo snapshot before deleting the saved browser copy.
   const startNewChat = useCallback(() => {
+    if (turns.length === 0) {
+      setMenuOpen(false);
+      return;
+    }
+    const snapshotTurns = turns.some(
+      (turn) => turn.status === "retrieving" || turn.status === "streaming",
+    )
+      ? turns.map((turn) =>
+          turn.status === "retrieving" || turn.status === "streaming"
+            ? { ...turn, status: "stopped" as const }
+            : turn,
+        )
+      : turns;
+    setPendingClear({
+      turns: snapshotTurns,
+      scope,
+      filters: { ...filters, publications: [...filters.publications] },
+    });
+    setClearAnnouncement("Conversation cleared. Undo available.");
+    reset();
+    setActive(null);
+    setActiveTerms([]);
+    setMenuOpen(false);
+  }, [turns, scope, filters, reset]);
+
+  const undoClear = useCallback(() => {
+    if (!pendingClear) return;
+    const snapshot = pendingClear;
+    setPendingClear(null);
+    setClearAnnouncement("Conversation restored.");
+    restore(snapshot.turns);
+    setScope(snapshot.scope);
+    if (!filtersEqual(filters, snapshot.filters)) {
+      const current = new URLSearchParams(searchParams ? searchParams.toString() : "");
+      const updated = serializeFilterParams(snapshot.filters, current);
+      const queryStr = updated.toString();
+      router.replace(queryStr ? `${pathname}?${queryStr}` : pathname, { scroll: false });
+    }
+  }, [pendingClear, restore, filters, searchParams, pathname, router]);
+
+  const commitClear = useCallback(() => {
+    setPendingClear(null);
+    setClearAnnouncement("");
+    persistence.discard();
+  }, [persistence]);
+
+  // Immediate shared-computer deletion from SessionNotice's two-tap button.
+  const deleteSessionNow = useCallback(() => {
+    setPendingClear(null);
+    setClearAnnouncement("");
     reset();
     persistence.discard();
     setActive(null);
@@ -106,6 +184,12 @@ export function ChatView() {
   // transcript stays truthful after the scope changes.
   const askScoped = useCallback(
     (question: string) => {
+      if (question.trim().length === 0) return;
+      if (pendingClear !== null) {
+        setPendingClear(null);
+        setClearAnnouncement("");
+        persistence.discard();
+      }
       if (scope.length === 0 && !hasFilters) return ask(question, null);
       // Chosen issues and the newspaper filter both apply; the backend ANDs
       // them. Sending only one silently dropped the other.
@@ -120,7 +204,7 @@ export function ChatView() {
         labels,
       });
     },
-    [ask, scope, hasFilters, filters],
+    [pendingClear, persistence, ask, scope, hasFilters, filters],
   );
 
   const isEmpty = turns.length === 0;
@@ -172,7 +256,7 @@ export function ChatView() {
               remainingMs={persistence.remainingMs}
               windowMs={persistence.windowMs}
               saveFailed={persistence.saveFailed}
-              onDelete={startNewChat}
+              onDelete={deleteSessionNow}
             />
           ) : (
             <p className="flex min-h-[44px] flex-1 items-center pr-4 text-[0.75rem] text-muted-foreground lg:hidden">
@@ -193,7 +277,12 @@ export function ChatView() {
           />
         )}
 
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {clearAnnouncement}
+        </div>
+
         <div className="rule-t bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm shrink-0">
+          {pendingClear && <UndoClearBar onUndo={undoClear} onDismiss={commitClear} />}
           <ScopeBar
             selected={scope}
             filterScopeLabel={filterScopeLabel}

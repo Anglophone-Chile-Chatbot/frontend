@@ -8,7 +8,6 @@ import ReactMarkdown, {
 import remarkGfm from "remark-gfm";
 
 import type { ChatSource } from "@/lib/api/types";
-import { assignCitationOrdinals, trimPartialMarker } from "@/lib/citations";
 import { citeHastHandlers, remarkCite } from "@/lib/remark-cite";
 
 import { CitationChip } from "./citation-chip";
@@ -17,32 +16,25 @@ import { CitationChip } from "./citation-chip";
  * Renders an answer as real markdown (headings, bold, lists, etc.), with
  * `[CITE:id]` markers resolved into tappable citation chips inline.
  *
- * Citation parsing happens inside the markdown AST via `remarkCite`, not as a
- * separate text-splitting pass — that's what lets a marker sit mid-sentence
- * or inside a list item and still render correctly alongside real formatting.
- *
- * While streaming, a partially-arrived marker at the tail is hidden so the
- * reader never sees a raw `[CITE:8f2` fragment flicker into a chip.
+ * Expects `answer` to be already trimmed and normalized, and `ordinals` to
+ * come from `numberCitations`, so inline chips and the Sources list share one
+ * numbering pass.
  */
 export function AnswerText({
   answer,
   sources,
+  ordinals,
   isStreaming,
   activeChunkId,
   onOpenSource,
 }: {
   answer: string;
   sources: ChatSource[];
+  ordinals: ReadonlyMap<string, number>;
   isStreaming: boolean;
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource) => void;
 }) {
-  // Trimmed whether streaming or not: an unclosed `[CITE:` tail is hidden
-  // mid-stream so it never flickers on screen, and left trimmed if the
-  // stream hangs up before the marker closes (upstream cutoff) — a dangling
-  // `[CITE:8f2` fragment should never render as raw text either way.
-  const text = trimPartialMarker(answer);
-  const ordinals = useMemo(() => assignCitationOrdinals(text), [text]);
   const byId = useMemo(
     () => new Map(sources.map((source) => [source.chunk_id, source])),
     [sources],
@@ -61,8 +53,8 @@ export function AnswerText({
       ({
         "cite-chunk": (props: { chunkId: string }) => {
           const source = byId.get(props.chunkId);
-          if (!source) return null;
-          const ordinal = ordinals.get(props.chunkId) ?? 0;
+          const ordinal = ordinals.get(props.chunkId);
+          if (!source || ordinal === undefined) return null;
           return (
             <CitationChip
               source={source}
@@ -85,7 +77,7 @@ export function AnswerText({
         }
         components={components}
       >
-        {text}
+        {answer}
       </ReactMarkdown>
       {isStreaming && (
         <span

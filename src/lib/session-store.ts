@@ -50,6 +50,14 @@ function isConversationState(value: unknown): value is ConversationState {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const VALID_STATUSES = new Set<ChatTurn["status"]>([
+  "retrieving",
+  "streaming",
+  "complete",
+  "stopped",
+  "error",
+]);
+
 function isTurn(value: unknown): value is ChatTurn {
   if (typeof value !== "object" || value === null) return false;
   const turn = value as Record<string, unknown>;
@@ -61,6 +69,7 @@ function isTurn(value: unknown): value is ChatTurn {
     Array.isArray(turn.related) &&
     Array.isArray(turn.terms) &&
     typeof turn.status === "string" &&
+    VALID_STATUSES.has(turn.status as ChatTurn["status"]) &&
     (turn.standalone === undefined || typeof turn.standalone === "string") &&
     (turn.followUp === undefined || typeof turn.followUp === "boolean") &&
     (turn.state === undefined || isConversationState(turn.state))
@@ -76,10 +85,16 @@ function isScopeDoc(value: unknown): value is DocumentSummary {
 /**
  * A turn that was still in flight when the page closed has no more text
  * coming, so it comes back as an honest error rather than a spinner that never
- * ends. Whatever text had streamed is kept.
+ * ends. Whatever text had streamed is kept, and stopped turns stay stopped.
  */
 function settle(turn: ChatTurn): ChatTurn {
-  if (turn.status === "complete" || turn.status === "error") return turn;
+  if (
+    turn.status === "complete" ||
+    turn.status === "stopped" ||
+    turn.status === "error"
+  ) {
+    return turn;
+  }
   return { ...turn, status: "error", error: INTERRUPTED_COPY };
 }
 

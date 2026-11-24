@@ -2,10 +2,16 @@
 
 import { AlertCircle, Library, ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ChatSource, QuestionIntent } from "@/lib/api/types";
-import { classifySourceUse, formatIssueDateShort } from "@/lib/citations";
+import {
+  formatIssueDateShort,
+  normalizeCitations,
+  numberCitations,
+  trimPartialMarker,
+  type CitationNumbering,
+} from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
 import { sweepTopic } from "@/lib/sweep-intent";
 import { cn } from "@/lib/utils";
@@ -62,14 +68,24 @@ export function Transcript({
     >
       <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-7">
         <div className="flex flex-col gap-7">
-          {turns.map((turn) => (
-            <TurnBlock
-              key={turn.id}
-              turn={turn}
-              activeChunkId={activeChunkId}
-              onOpenSource={onOpenSource}
-            />
-          ))}
+          {turns.map((turn, index) => {
+            const isFirstQuestion = !turns
+              .slice(0, index)
+              .some(
+                (prev) =>
+                  (prev.status === "complete" || prev.status === "stopped") &&
+                  prev.answer.trim().length > 0,
+              );
+            return (
+              <TurnBlock
+                key={turn.id}
+                turn={turn}
+                isFirstQuestion={isFirstQuestion}
+                activeChunkId={activeChunkId}
+                onOpenSource={onOpenSource}
+              />
+            );
+          })}
         </div>
         <div ref={endRef} className="h-px" />
       </div>
@@ -79,13 +95,25 @@ export function Transcript({
 
 function TurnBlock({
   turn,
+  isFirstQuestion,
   activeChunkId,
   onOpenSource,
 }: {
   turn: ChatTurn;
+  isFirstQuestion: boolean;
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
+  const normalizedAnswer = useMemo(
+    () => normalizeCitations(trimPartialMarker(turn.answer)),
+    [turn.answer],
+  );
+  const numbering = useMemo(
+    () => numberCitations(normalizedAnswer, turn.sources),
+    [normalizedAnswer, turn.sources],
+  );
+  const hasAnswerText = normalizedAnswer.trim().length > 0;
+
   return (
     <div id={`turn-${turn.id}`} className="animate-rise flex scroll-mt-4 flex-col gap-3">
       {/* The question gets its own role — a labelled rule, not a heading.
@@ -112,7 +140,7 @@ function TurnBlock({
           {turn.error}
         </p>
       ) : (
-        turn.answer.length > 0 && (
+        hasAnswerText && (
           <div className="bg-card-answer rounded-r-lg border border-[var(--rule)] border-l-[3px] border-l-[var(--accent)] px-4 py-3.5">
             <p className="eyebrow mb-2 flex items-center gap-1.5 text-[var(--accent)]">
               <span
@@ -122,8 +150,9 @@ function TurnBlock({
               Answer from the archive
             </p>
             <AnswerText
-              answer={turn.answer}
+              answer={normalizedAnswer}
               sources={turn.sources}
+              ordinals={numbering.ordinals}
               isStreaming={turn.status === "streaming"}
               activeChunkId={activeChunkId}
               onOpenSource={(source) => onOpenSource(source, turn.terms)}
@@ -132,15 +161,27 @@ function TurnBlock({
         )
       )}
 
+      {turn.status === "stopped" && hasAnswerText && (
+        <p className="measure text-[0.8125rem] leading-relaxed text-muted-foreground">
+          You stopped this answer.
+        </p>
+      )}
+
+      {turn.status === "stopped" && !hasAnswerText && (
+        <p className="measure text-[0.875rem] leading-relaxed text-muted-foreground">
+          {turn.sources.length > 0
+            ? "Stopped before an answer was written. The passages it found are below."
+            : "Stopped before an answer was written."}
+        </p>
+      )}
+
       {turn.status === "complete" &&
-        turn.answer.length === 0 &&
+        !hasAnswerText &&
         turn.sources.length === 0 && <NoMatchNote scoped={turn.scope !== null} />}
 
-      {turn.status !== "retrieving" &&
-        turn.status !== "error" &&
-        (turn.answer.length > 0 || turn.status === "complete") && (
-          <SearchedForNote turn={turn} />
-        )}
+      {turn.status !== "retrieving" && turn.status !== "error" && (
+        <SearchedForNote turn={turn} isFirstQuestion={isFirstQuestion} />
+      )}
 
       {turn.status === "complete" && (
         <EveryMatchNote question={turn.question} intent={turn.intent} topics={turn.topics} />
@@ -149,8 +190,9 @@ function TurnBlock({
       {turn.sources.length > 0 && turn.status !== "error" && (
         <SourceList
           sources={turn.sources}
-          answer={turn.answer}
-          isComplete={turn.status === "complete"}
+          numbering={numbering}
+          status={turn.status}
+          hasAnswerText={hasAnswerText}
           terms={turn.terms}
           activeChunkId={activeChunkId}
           onOpenSource={onOpenSource}
@@ -227,80 +269,163 @@ function NoMatchNote({ scoped }: { scoped: boolean }) {
 /** The pages an answer drew on, listed under it for scanning. */
 function SourceList({
   sources,
-  answer,
-  isComplete,
+  numbering,
+  status,
+  hasAnswerText,
   terms,
   activeChunkId,
   onOpenSource,
 }: {
   sources: ChatSource[];
-  answer: string;
-  isComplete: boolean;
+  numbering: CitationNumbering<ChatSource>;
+  status: ChatTurn["status"];
+  hasAnswerText: boolean;
   terms: string[];
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
-  const { use, cited } = classifySourceUse(
-    sources.map((s) => s.chunk_id),
-    answer,
-    isComplete,
-  );
-  return (
-    <div className="mt-1">
-      <p className="eyebrow mb-2">{use === "none" ? "Closest matches" : "Sources"}</p>
-      {use === "none" && (
+  if (status === "streaming" || status === "retrieving") {
+    return (
+      <div className="mt-1">
+        <p className="eyebrow mb-2">Sources</p>
+        <ol className="flex flex-col">
+          {sources.map((source, index) => (
+            <SourceRow
+              key={source.chunk_id}
+              source={source}
+              ordinal={index + 1}
+              isActive={activeChunkId === source.chunk_id}
+              onOpen={() => onOpenSource(source, terms)}
+            />
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
+  if (status === "stopped" && (!hasAnswerText || numbering.cited.length === 0)) {
+    return (
+      <div className="mt-1">
+        <p className="eyebrow mb-2">Passages found</p>
+        <ul className="flex flex-col">
+          {sources.map((source) => (
+            <SourceRow
+              key={source.chunk_id}
+              source={source}
+              isActive={activeChunkId === source.chunk_id}
+              onOpen={() => onOpenSource(source, terms)}
+            />
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (status === "complete" && numbering.cited.length === 0) {
+    return (
+      <div className="mt-1">
+        <p className="eyebrow mb-2">Closest matches</p>
         <p className="measure mb-2 text-[0.8125rem] leading-relaxed text-muted-foreground">
           None of these answers the question. They share search words with it and are kept in
           case they help.
         </p>
+        <ul className="flex flex-col">
+          {sources.map((source) => (
+            <SourceRow
+              key={source.chunk_id}
+              source={source}
+              isActive={activeChunkId === source.chunk_id}
+              onOpen={() => onOpenSource(source, terms)}
+            />
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1">
+      <p className="eyebrow mb-2">Sources</p>
+      <ol className="flex flex-col">
+        {numbering.cited.map((source) => (
+          <SourceRow
+            key={source.chunk_id}
+            source={source}
+            ordinal={numbering.ordinals.get(source.chunk_id)}
+            isActive={activeChunkId === source.chunk_id}
+            onOpen={() => onOpenSource(source, terms)}
+          />
+        ))}
+      </ol>
+      {numbering.unused.length > 0 && (
+        <>
+          <p className="mt-3 mb-1.5 text-[0.75rem] font-medium text-muted-foreground">
+            Matched the search, not used
+          </p>
+          <ul className="flex flex-col">
+            {numbering.unused.map((source) => (
+              <SourceRow
+                key={source.chunk_id}
+                source={source}
+                muted
+                isActive={activeChunkId === source.chunk_id}
+                onOpen={() => onOpenSource(source, terms)}
+              />
+            ))}
+          </ul>
+        </>
       )}
-      {use === "some" && (
-        <p className="measure mb-2 text-[0.8125rem] leading-relaxed text-muted-foreground">
-          Greyed-out passages matched the search but were not used in the answer.
-        </p>
-      )}
-      <ul className="flex flex-col">
-        {sources.map((source, index) => {
-          const date = formatIssueDateShort(source.issue_date);
-          const isActive = activeChunkId === source.chunk_id;
-          // Greyed only in a mix; when nothing was cited the heading and note
-          // already say so, and greying every row would only add noise.
-          const isUncited = use === "some" && !cited.has(source.chunk_id);
-          return (
-            <li key={source.chunk_id}>
-              <button
-                type="button"
-                onClick={() => onOpenSource(source, terms)}
-                className={cn(
-                  "flex min-h-[44px] w-full items-baseline gap-2.5 rounded-md",
-                  "px-2 py-2 text-left transition-colors duration-[120ms]",
-                  "ease-[var(--ease-crisp)] hover:bg-secondary",
-                  isActive && "bg-[var(--accent-subtle)]",
-                )}
-              >
-                <span className="numeric w-4 shrink-0 text-[0.75rem] text-[var(--accent)]">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span 
-                    className={cn(
-                      "block truncate font-heading text-[0.875rem]",
-                      isUncited ? "text-muted-foreground" : "text-foreground"
-                    )}
-                  >
-                    {source.publication ?? "Unidentified publication"}
-                  </span>
-                  <span className="numeric mt-0.5 block text-[0.75rem] text-muted-foreground">
-                    {date ? `${date} · ` : ""}Page {source.page_number}
-                    {isUncited && <span className="sr-only"> (not used in the answer)</span>}
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
     </div>
+  );
+}
+
+function SourceRow({
+  source,
+  ordinal,
+  muted = false,
+  isActive,
+  onOpen,
+}: {
+  source: ChatSource;
+  ordinal?: number;
+  muted?: boolean;
+  isActive: boolean;
+  onOpen: () => void;
+}) {
+  const date = formatIssueDateShort(source.issue_date);
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className={cn(
+          "flex min-h-[44px] w-full items-baseline gap-2.5 rounded-md",
+          "px-2 py-2 text-left transition-colors duration-[120ms]",
+          "ease-[var(--ease-crisp)] hover:bg-secondary",
+          isActive && "bg-[var(--accent-subtle)]",
+        )}
+      >
+        {ordinal !== undefined && (
+          <span className="numeric w-4 shrink-0 text-[0.75rem] text-[var(--accent)]">
+            {ordinal}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block truncate font-heading text-[0.875rem]",
+              muted ? "text-muted-foreground" : "text-foreground",
+            )}
+          >
+            {source.publication ?? "Unidentified publication"}
+          </span>
+          <span className="numeric mt-0.5 block text-[0.75rem] text-muted-foreground">
+            {date ? `${date} · ` : ""}Page {source.page_number}
+            {muted && <span className="sr-only"> (not used in the answer)</span>}
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }
 
@@ -370,20 +495,41 @@ function RelatedList({
  * `lib/sweep-intent.ts`).
  */
 /**
- * Shown under a follow-up answer when the server's standalone question differs
- * from what the reader typed, so the reader can see how the follow-up was
- * understood and rephrase if needed (CHUNK 25 / W8).
+ * Shown on every turn that received a `sources` frame so the reader sees how
+ * the search was phrased, whether a follow-up carried context, or whether a
+ * later question was treated as a new topic.
  */
-function SearchedForNote({ turn }: { turn: ChatTurn }) {
-  if (!turn.followUp || !turn.standalone) return null;
-  const standalone = turn.standalone.trim();
-  if (standalone.length === 0) return null;
-  if (standalone.toLowerCase() === turn.question.trim().toLowerCase()) {
-    return null;
+function SearchedForNote({
+  turn,
+  isFirstQuestion,
+}: {
+  turn: ChatTurn;
+  isFirstQuestion: boolean;
+}) {
+  if (turn.followUp === undefined) return null;
+
+  const cleanedTerms = turn.terms
+    .map((term) => term.trim())
+    .filter((term) => term.length > 0)
+    .slice(0, 5);
+  const termsText = cleanedTerms.join(", ");
+
+  let text: string;
+  if (turn.followUp) {
+    const standalone = turn.standalone?.trim() || turn.question.trim();
+    text = `Searched for: ${standalone}`;
+  } else if (isFirstQuestion) {
+    text = `Searched for: ${termsText.length > 0 ? termsText : turn.question.trim()}`;
+  } else {
+    text =
+      termsText.length > 0
+        ? `Treated as a new question · Searched for: ${termsText}`
+        : "Treated as a new question";
   }
+
   return (
-    <p className="measure text-[0.8125rem] leading-relaxed text-muted-foreground">
-      Searched for: {standalone}
+    <p className="measure min-w-0 break-words text-[0.75rem] leading-relaxed text-muted-foreground">
+      {text}
     </p>
   );
 }

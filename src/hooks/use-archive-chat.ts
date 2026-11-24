@@ -69,7 +69,7 @@ export interface ChatTurn {
   followUp?: boolean;
   /** Opaque compact conversation state from the server's `state` SSE event. */
   state?: ConversationState;
-  status: "retrieving" | "streaming" | "complete" | "error";
+  status: "retrieving" | "streaming" | "complete" | "stopped" | "error";
   /** User-facing error copy, set only when `status === "error"`. */
   error?: string;
   /**
@@ -118,6 +118,12 @@ export function useArchiveChat(): UseArchiveChat {
   useEffect(() => {
     turnsRef.current = turns;
   }, [turns]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   /** Apply a partial update to one turn, leaving the rest untouched. */
   const patchTurn = useCallback((id: string, patch: Partial<ChatTurn>) => {
@@ -231,20 +237,30 @@ export function useArchiveChat(): UseArchiveChat {
           }
         }
 
-        // Stream ended without an explicit terminator (upstream hang-up).
+        // Stream ended without an explicit terminator (upstream hang-up) or was aborted.
+        const wasAborted = controller.signal.aborted;
         setTurns((current) =>
-          current.map((turn) =>
-            turn.id === id && turn.status === "streaming"
+          current.map((turn) => {
+            if (turn.id !== id) return turn;
+            if (wasAborted) {
+              return turn.status === "streaming" || turn.status === "retrieving"
+                ? { ...turn, status: "stopped" }
+                : turn;
+            }
+            return turn.status === "streaming"
               ? { ...turn, status: "complete" }
-              : turn,
-          ),
+              : turn;
+          }),
         );
       } catch (error) {
-        // A user-initiated stop is not a failure — keep what streamed.
-        if (error instanceof DOMException && error.name === "AbortError") {
+        // A user-initiated stop or unmount abort is not a failure - keep what streamed.
+        if (
+          controller.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) {
           setTurns((current) =>
             current.map((turn) =>
-              turn.id === id ? { ...turn, status: "complete" } : turn,
+              turn.id === id ? { ...turn, status: "stopped" } : turn,
             ),
           );
         } else {
@@ -254,8 +270,10 @@ export function useArchiveChat(): UseArchiveChat {
           });
         }
       } finally {
-        abortRef.current = null;
-        setIsBusy(false);
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsBusy(false);
+        }
       }
     },
     [patchTurn],
@@ -263,7 +281,6 @@ export function useArchiveChat(): UseArchiveChat {
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
-    abortRef.current = null;
   }, []);
 
   const reset = useCallback(() => {
@@ -291,7 +308,9 @@ export function useArchiveChat(): UseArchiveChat {
  */
 function buildHistory(turns: ChatTurn[]): ChatHistory | undefined {
   const completed = turns.filter(
-    (turn) => turn.status === "complete" && turn.answer.length > 0,
+    (turn) =>
+      (turn.status === "complete" || turn.status === "stopped") &&
+      turn.answer.trim().length > 0,
   );
   if (completed.length === 0) return undefined;
 
