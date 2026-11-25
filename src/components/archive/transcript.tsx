@@ -180,15 +180,17 @@ function TurnBlock({
 
       {turn.status === "stopped" && hasAnswerText && (
         <p className="measure text-[0.8125rem] leading-relaxed text-muted-foreground">
-          You stopped this answer.
+          {turn.interrupted
+            ? "The connection dropped before this answer finished."
+            : "You stopped this answer."}
         </p>
       )}
 
       {turn.status === "stopped" && !hasAnswerText && (
         <p className="measure text-[0.875rem] leading-relaxed text-muted-foreground">
           {turn.sources.length > 0
-            ? "Stopped before an answer was written. The passages it found are below."
-            : "Stopped before an answer was written."}
+            ? `${turn.interrupted ? "The connection dropped" : "Stopped"} before an answer was written. The passages it found are below.`
+            : `${turn.interrupted ? "The connection dropped" : "Stopped"} before an answer was written.`}
         </p>
       )}
 
@@ -302,6 +304,7 @@ function SourceList({
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
+  const shared = sharedPageIds(sources);
   if (status === "streaming" || status === "retrieving") {
     return (
       <div className="mt-1">
@@ -311,6 +314,7 @@ function SourceList({
             <SourceRow
               key={source.chunk_id}
               source={source}
+              showOpening={shared.has(source.page_id)}
               // The chip's number once the answer has cited it, else none:
               // arrival order would disagree with the chips mid-stream.
               ordinal={numbering.ordinals.get(source.chunk_id)}
@@ -332,6 +336,7 @@ function SourceList({
             <SourceRow
               key={source.chunk_id}
               source={source}
+              showOpening={shared.has(source.page_id)}
               isActive={activeChunkId === source.chunk_id}
               onOpen={() => onOpenSource(source, terms)}
             />
@@ -354,6 +359,7 @@ function SourceList({
             <SourceRow
               key={source.chunk_id}
               source={source}
+              showOpening={shared.has(source.page_id)}
               isActive={activeChunkId === source.chunk_id}
               onOpen={() => onOpenSource(source, terms)}
             />
@@ -371,6 +377,7 @@ function SourceList({
           <SourceRow
             key={source.chunk_id}
             source={source}
+            showOpening={shared.has(source.page_id)}
             ordinal={numbering.ordinals.get(source.chunk_id)}
             isActive={activeChunkId === source.chunk_id}
             onOpen={() => onOpenSource(source, terms)}
@@ -387,6 +394,7 @@ function SourceList({
               <SourceRow
                 key={source.chunk_id}
                 source={source}
+                showOpening={shared.has(source.page_id)}
                 muted
                 isActive={activeChunkId === source.chunk_id}
                 onOpen={() => onOpenSource(source, terms)}
@@ -399,16 +407,40 @@ function SourceList({
   );
 }
 
+/**
+ * Page ids that more than one listed passage comes from. Two passages on the
+ * same page used to give two identical rows ("Chilian Times · 14 Mar 1891 ·
+ * Supplement · Page 2" twice), which read as a duplicate (tester report
+ * 2026-11-20); those rows now also show how each passage opens.
+ */
+function sharedPageIds(sources: readonly ChatSource[]): Set<string> {
+  const seen = new Set<string>();
+  const shared = new Set<string>();
+  for (const source of sources) {
+    if (seen.has(source.page_id)) shared.add(source.page_id);
+    seen.add(source.page_id);
+  }
+  return shared;
+}
+
+/** The first words of a passage, plain text, for telling same-page rows apart. */
+function passageOpening(content: string): string {
+  const plain = content.replace(/[#*_>|`]+/g, " ").replace(/\s+/g, " ").trim();
+  return plain.length > 72 ? `${plain.slice(0, 72).replace(/\s+\S*$/, "")}…` : plain;
+}
+
 function SourceRow({
   source,
   ordinal,
   muted = false,
+  showOpening = false,
   isActive,
   onOpen,
 }: {
   source: ChatSource;
   ordinal?: number;
   muted?: boolean;
+  showOpening?: boolean;
   isActive: boolean;
   onOpen: () => void;
 }) {
@@ -444,6 +476,11 @@ function SourceRow({
             {editionName(source.edition) ? `${editionName(source.edition)} · ` : ""}Page {source.page_number}
             {muted && <span className="sr-only"> (not used in the answer)</span>}
           </span>
+          {showOpening && source.content && (
+            <span className="mt-0.5 block truncate text-[0.75rem] italic text-muted-foreground">
+              {passageOpening(source.content)}
+            </span>
+          )}
         </span>
       </button>
     </li>

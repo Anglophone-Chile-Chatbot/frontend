@@ -76,6 +76,13 @@ export interface ChatTurn {
    */
   clarify?: { candidates: string[] };
   status: "retrieving" | "streaming" | "complete" | "stopped" | "error";
+  /**
+   * The stream ended without the server's `done` and without the reader
+   * pressing Stop (a dropped connection, 2026-11-26). Shown as a cut-off
+   * answer, never as a finished one: a finished answer with no citations
+   * would read "None of these answers the question", which is false here.
+   */
+  interrupted?: boolean;
   /** User-facing error copy, set only when `status === "error"`. */
   error?: string;
   /**
@@ -283,8 +290,8 @@ export function useArchiveChat(): UseArchiveChat {
                 ? { ...turn, status: "stopped" }
                 : turn;
             }
-            return turn.status === "streaming"
-              ? { ...turn, status: "complete" }
+            return turn.status === "streaming" || turn.status === "retrieving"
+              ? { ...turn, status: "stopped", interrupted: true }
               : turn;
           }),
         );
@@ -356,6 +363,14 @@ function buildHistory(turns: ChatTurn[]): ChatHistory | undefined {
       latestState = completed[i].state;
       break;
     }
+  }
+  // A stopped answer never receives its state, so the newest state describes
+  // an OLDER answer. Its "last answer" list would make "the first one" point
+  // into that older list (code audit 2026-11-26), so it is left out; the
+  // entities, notes and recent questions still travel.
+  const newest = completed[completed.length - 1];
+  if (latestState !== undefined && newest.state === undefined && "last_answer" in latestState) {
+    latestState = { ...latestState, last_answer: [] };
   }
 
   const recentTurns: ChatHistoryTurn[] = completed.slice(-3).map((turn) => ({
