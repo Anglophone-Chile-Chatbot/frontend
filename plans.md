@@ -54,10 +54,10 @@ git history and `infra/BUILT.md`.
   issues without an edition exist.
 - [ ] **Zoom without pixelation (Shakib, 2026-11-25).** Today's scans are a 192 DPI render (~1920 px wide, about 23%
   of the library scan's pixels), so zooming blurs on an ordinary laptop. The originals are 4000 px (backend
-  EXPERIMENTS run 29). Plan: full-detail images made from the extracted original during the GPU pass (backend
-  CHUNK 29 A12), served as zoom tiles so a page opens fast and detail loads as you zoom. Waits on where the
-  ~140-165 GB of images is stored (Shakib's call). Check at 375 px and on a laptop that the first view loads no
-  slower than today.
+  EXPERIMENTS run 29). Plan (backend plans "THE WHOLE ROAD"): a middle size, proposed 2,800 px AVIF (~1.2 MB a
+  page, ~56 GB in all, on the server), made in Google Colab from Drive and moved as bundles. Never scanner size.
+  Size is Shakib's pick from the comparison. The viewer may need a smaller first image (or tiles) so a page
+  opens no slower than today; check at 375 px and on a laptop.
 
 **Dropped / parked:** react-pdf (PDFs never reach the server; drop unless a tester asks). Turnstile waits on
 Cloudflare, which waits on a domain.
