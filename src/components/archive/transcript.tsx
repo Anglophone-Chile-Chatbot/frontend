@@ -650,7 +650,7 @@ function EveryMatchNote({
       This answer draws on six passages at most.{" "}
       <Link
         href={`/archive?q=${encodeURIComponent(topic)}`}
-        className="inline-flex min-h-[44px] items-center font-medium text-[var(--accent)] underline-offset-2 hover:underline sm:min-h-0"
+        className="inline-flex min-h-[44px] items-center font-medium text-[var(--accent)] underline-offset-2 hover:underline"
       >
         See every match for “{topic}”
       </Link>{" "}
