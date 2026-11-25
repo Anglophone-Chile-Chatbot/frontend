@@ -58,7 +58,9 @@ git history and `infra/BUILT.md`.
   width if smaller (~30% of pages are only ~1,500 px), ~1.3 MB a page on average, made in Google Colab from Drive
   and moved as bundles. Never scanner size. Frontend part (backend WHAT'S NEXT step 3): show a light preview
   (~1,000-1,200 px) first and swap in the full image as the reader zooms, so a page opens no slower than today;
-  check at 375 px and on a laptop. Plan only, not built.
+  check at 375 px and on a laptop. Plan only, not built. Low-resolution pages (~30%, scanned at 150 ppi) are never
+  upscaled. Ingest gives them a `low_resolution` flag, and the viewer shows a quiet note ("scanned at lower
+  resolution") so the softer zoom reads as the source, not a bug.
 
 **Dropped / parked:** react-pdf (PDFs never reach the server; drop unless a tester asks). Turnstile waits on
 Cloudflare, which waits on a domain.
