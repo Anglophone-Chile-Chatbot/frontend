@@ -25,7 +25,7 @@ pre-prune text: `git show 064ed33:plans.md`; older: `git show 660afe3:plans.md`.
 
 Nothing on the site blocks the GPU work (backend CHUNK 29), which is the project's critical path right now.
 
-1. **W9's browser check** (built 2026-11-24; see W9 below). Then the second contributor re-runs `TESTING.md` A7/A8.
+1. **W9 checked on live 2026-11-26** (see W9 below). Next: the second contributor re-runs `TESTING.md` A7/A8.
 2. **Require CI before `main` deploys**, now that a second contributor exists: branch protection on this public repo
    (require a PR and the `lint-typecheck-build` check, admins exempt). One click for Shakib in GitHub settings;
    Claude Code's permission guard blocked doing it.
@@ -39,7 +39,7 @@ Nothing on the site blocks the GPU work (backend CHUNK 29), which is the project
 7. **After the bulk run** (backend CHUNK 28 tier 3): credit line per scan source, "Also at the British Library",
    "About this paper", "Cite this issue", later place/publisher/decade filters. Mobile-first, `TESTING.md` same turn.
 
-## W9 — built 2026-11-24 (with backend CHUNK 30). One check left
+## W9 — built 2026-11-24 (with backend CHUNK 30), checked on live 2026-11-26
 
 All nine items shipped: one citation numbering for chips and the Sources list ("Matched the search, not used"
 for the rest), raw citation codes hidden, an honest Stop, the "Searched for" / "Treated as a new question" line,
@@ -48,9 +48,15 @@ an archive-wide Dates block, New question with a 10-second Undo, "Supplement" in
 git history and `infra/BUILT.md`.
 - Browser check done 2026-11-24 (Antigravity, 375/390/412 px and 1352 px): all flows OK; fixed what it found
   (adjacent citation chips stealing taps, the Dates panel closing on the first pick, desktop controls under 44 px).
-  Code review the same day (Codex): six edge cases fixed. Not yet seen live: the "Which did you mean?" chips.
-- [ ] **Small, no live case today:** the "Issue 1 / Issue 2" fallback shows in lists but not in the reader header
-  (the reader only knows its own issue). Needs the sibling group passed in (or a backend field) once two same-day
+  Code review the same day (Codex): six edge cases fixed.
+- **Re-checked on live 2026-11-26 against all 16 problems of the first tester report** (backend EXPERIMENTS run 30;
+  Antigravity browser check at 375 and 1352 px plus two rechecks, live replays, Codex code audit). Fixed the same day:
+  dropped connections said "None of these answers" (now "The connection dropped…"); a follow-up after Stop pointed
+  into the older answer's list; two passages from one page looked like duplicates (now show their first words);
+  "See every match" was 21 px tall on desktop; the "Which did you mean?" buttons arrived behind the question box on
+  phones (the scroll now follows them). The chips are now seen working live.
+- [ ] **Small, no live case today:** the "Issue 1 / Issue 2" fallback shows in lists but not in the reader header,
+  the Sources rows or the scope bar (code audit 2026-11-26; the reader only knows its own issue). Needs the sibling group passed in (or a backend field) once two same-day
   issues without an edition exist.
 - [ ] **Zoom without pixelation (Shakib, 2026-11-25).** Today's scans are a 192 DPI render (~1920 px wide, about 23%
   of the library scan's pixels), so zooming blurs on an ordinary laptop. The originals are 4000 px (backend

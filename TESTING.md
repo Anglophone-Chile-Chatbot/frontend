@@ -1,7 +1,7 @@
 # Archive test checklist (for the research assistant)
 
 Site: https://anglochile.vercel.app
-Last updated: 2026-11-24. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
+Last updated: 2026-11-26. This list is kept current: when a feature changes, its test is marked **(changed YYYY-MM-DD)**. Re-check those.
 
 **How to work.** Tick a box when the test is done. Under each test, write what you saw. Mark it **OK** or **PROBLEM**. For a problem, always give the exact question you typed, the newspaper, date and page, what you expected, and what happened. Note your device and browser once at the top.
 
@@ -52,22 +52,26 @@ Device and browser:
   - Write down: any question where the line appeared when it should not, or was missing when it should be there.
   - Notes:
 
-- [ ] **A7. Follow-up questions** (25 min) **(changed 2026-11-24: rebuilt from your first report)**. Start each part with **New question** so it begins fresh. Under every answer there is now a small grey line: *Searched for: …* (what the site actually looked for) or *Treated as a new question*.
+- [ ] **A7. Follow-up questions** (25 min) **(changed 2026-11-26: parts 1, 3, 5, 6 and 7 updated after a re-check of your first report)**. Start each part with **New question** so it begins fresh. Under every answer there is now a small grey line: *Searched for: …* (what the site actually looked for) or *Treated as a new question*.
   1. **The wreck.** Ask: *What shipping news appears in these issues?* Then: *tell me more about the wreck*.
-     - Works when: the second answer is about the ship the first answer said was wrecked (in our copy that is the British barque *Ailshaw*), not about ships that simply arrived. The grey line names that ship.
+     - Works when: the second answer is about the ship the first answer said was wrecked, not about ships that simply arrived. **(changed 2026-11-26)** Today the first answer reports one wreck, the *Dalhousie*, which sank off Beechy Head; if your first answer reports a different wreck, it should follow that one. The grey line names that ship.
   2. **Going back.** Then ask: *go back to the first ship you mentioned. what was its cargo?*
      - Works when: it picks the first ship named in the very first answer (the *Arauco*, with coal from Lota) and the grey line says so.
   3. **Changing topic.** Then ask: *What did the papers say about the 1906 Valparaiso earthquake?*
      - Works when: the line says *Treated as a new question*, and the answer never mentions the ships or the wreck, not even to say it has nothing on them.
+     - **(changed 2026-11-26)** Then open **Choose issues**, pick one issue (for example *The Star of Chile*, 5 Jan 1906), press Done, and ask: *What news is in this issue?* Works when: the grey line and the answer are about that issue only, with no ship, wreck or sport from earlier. Do the same with a newspaper chosen in **Newspapers and dates** and *What shipping news appears here?*
   4. **"The first one".** New question. Ask: *What sports were played by the British community?* Then: *tell me more about the first one*.
      - Works when: it continues with the first sport the answer listed (look at the answer's own order), not with an earlier question.
   5. **A detail from earlier.** New question. Ask: *What shipping news appears in these issues?* Then: *who was the captain of that British steamer from Lota?*
-     - Works when: it names the captain if the passage gives one (it does: Captain Asplund of the *Arauco*), with a number you can tap.
-  6. **"Which did you mean?"** If a follow-up could mean two different things, the site may ask *Which did you mean?* with a button for each. Tap one.
-     - Works when: the buttons are easy to tap, and after tapping, the answer is about the one you chose.
+     - Works when: it names the captain if the passage gives one (it does: Captain Asplund of the *Arauco*), with a number you can tap. Also reload the page and ask it again: it should still find him.
+     - **(changed 2026-11-26) Known gap, do not report again:** if you ask about something unrelated in between (a new topic), the site forgets the shipping thread on purpose, and may then not find the Lota steamer. Naming the ship (*the Arauco*) works.
+  6. **"Which did you mean?"** **(changed 2026-11-26: now really appears)** New question. Ask: *What shipping news appears in these issues?* Then: *tell me more about the steamer*. Several steamers were listed, so the site should ask *Which did you mean?* with a button per steamer instead of guessing. Tap one.
+     - Works when: the buttons are visible without scrolling on a phone and easy to tap, and after tapping, the answer is about the one you chose. Also reload while the question is showing: the buttons should still be there.
+     - Write down any follow-up where it guessed when it should have asked, or asked when the answer was obvious.
   7. **Citation numbers.** On any answer with several numbers, compare the numbers in the text with the **Sources** list.
      - Where several numbers sit side by side (like 1 2 3 4), tap each one on a phone. Each must open its own passage, never its neighbour's.
-     - Works when: number 1 in the text opens the same passage as item 1 in the list, and so on. Passages the answer did not use are listed separately under *Matched the search, not used*, without numbers. You never see raw codes such as `[CITE:…]` or long strings of letters and digits in the answer.
+     - Works when: number 1 in the text opens the same passage as item 1 in the list, and so on. Passages the answer did not use are listed separately under *Matched the search, not used*, without numbers. You never see raw codes such as `[CITE:…]`, `[S3]`, `(S2)` or long strings of letters and digits in the answer.
+     - **(changed 2026-11-26)** When two Sources rows come from the same page, each also shows its first few words in italics, so they no longer look like duplicates.
   8. **Stop.** Ask a long question and press Stop right away, before any words appear. Then ask another and press Stop halfway through the answer.
      - Works when: stopped early, it says *Stopped before an answer was written. The passages it found are below.* (never "none of these answer the question"); stopped halfway, it keeps the words so far and adds *You stopped this answer.*
   9. **New question and Undo.** After a few questions, press **New question**. A bar says *Conversation cleared · Undo* for about 10 seconds. Press Undo. Then try again and let the bar disappear, and reload the page.
