@@ -44,6 +44,11 @@ export function Transcript({
 
   const lastTurn = turns.at(-1);
   const streamedLength = lastTurn?.answer.length ?? 0;
+  // A "Which did you mean?" turn and a status change (sources, Stop) grow the
+  // page without adding answer text, so they are followed too (2026-11-26:
+  // the clarify buttons arrived hidden behind the question box at 375 px).
+  const lastStatus = lastTurn?.status;
+  const clarifyCount = lastTurn?.clarify?.candidates.length ?? 0;
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -63,7 +68,7 @@ export function Transcript({
     if (shouldFollow.current) {
       endRef.current?.scrollIntoView({ block: "end" });
     }
-  }, [turns.length, streamedLength]);
+  }, [turns.length, streamedLength, lastStatus, clarifyCount]);
 
   return (
     <div
