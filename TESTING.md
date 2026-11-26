@@ -64,7 +64,7 @@ Device and browser:
      - Works when: it continues with the first sport the answer listed (look at the answer's own order), not with an earlier question.
   5. **A detail from earlier.** New question. Ask: *What shipping news appears in these issues?* Then: *who was the captain of that British steamer from Lota?*
      - Works when: it names the captain if the passage gives one (it does: Captain Asplund of the *Arauco*), with a number you can tap. Also reload the page and ask it again: it should still find him.
-     - **(changed 2026-11-26) Known gap, do not report again:** if you ask about something unrelated in between (a new topic), the site forgets the shipping thread on purpose, and may then not find the Lota steamer. Naming the ship (*the Arauco*) works.
+     - **(changed 2026-11-26)** Also try it with something unrelated in between (ask about the earthquake first, then the Lota question). The site forgets the shipping thread on purpose there, but it should still find Captain Asplund by searching. If it does not, report it.
   6. **"Which did you mean?"** **(changed 2026-11-26: now really appears)** New question. Ask: *What shipping news appears in these issues?* Then: *tell me more about the steamer*. Several steamers were listed, so the site should ask *Which did you mean?* with a button per steamer instead of guessing. Tap one.
      - Works when: the buttons are visible without scrolling on a phone and easy to tap, and after tapping, the answer is about the one you chose. Also reload while the question is showing: the buttons should still be there.
      - Write down any follow-up where it guessed when it should have asked, or asked when the answer was obvious.
