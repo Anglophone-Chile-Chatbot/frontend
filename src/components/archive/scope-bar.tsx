@@ -3,6 +3,7 @@
 import { Folder, Library, X } from "lucide-react";
 
 import type { DocumentSummary } from "@/lib/api/types";
+import { issueLabelFor, useIssueLabels } from "@/hooks/use-issue-labels";
 import { formatIssueDateShort } from "@/lib/citations";
 import { cn } from "@/lib/utils";
 
@@ -36,14 +37,15 @@ export function ScopeBar({
   /** True while a turn is streaming — scope must not change mid-answer. */
   disabled?: boolean;
 }) {
+  const issueLabels = useIssueLabels();
   const isScoped = selected.length > 0 || !!filterScopeLabel;
   // A picked issue and a newspaper filter both constrain the answer (the
   // backend ANDs them), so the bar names both rather than hiding one.
   const label =
     selected.length > 0
       ? filterScopeLabel
-        ? `${describe(selected)} · ${filterScopeLabel}`
-        : describe(selected)
+        ? `${describe(selected, issueLabels)} · ${filterScopeLabel}`
+        : describe(selected, issueLabels)
       : (filterScopeLabel ?? "");
 
   return (
@@ -129,12 +131,14 @@ export function ScopeBar({
  * One document is named outright; several are counted, since a list of titles
  * would wrap and push the composer down on a 375px screen.
  */
-function describe(selected: DocumentSummary[]): string {
+function describe(selected: DocumentSummary[], issueLabels: Map<string, string>): string {
   if (selected.length === 1) {
     const [only] = selected;
     const name = only.publication ?? only.title;
     const date = formatIssueDateShort(only.issue_date);
-    return date ? `${name}, ${date}` : name;
+    const edition = issueLabelFor(issueLabels, only.document_id, only.edition);
+    const named = edition ? `${name} (${edition})` : name;
+    return date ? `${named}, ${date}` : named;
   }
   return `${selected.length} documents`;
 }

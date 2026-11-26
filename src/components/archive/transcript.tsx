@@ -14,7 +14,7 @@ import {
 } from "@/lib/citations";
 import type { ChatTurn } from "@/hooks/use-archive-chat";
 import { sweepTopic } from "@/lib/sweep-intent";
-import { editionName } from "@/lib/editions";
+import { issueLabelFor, useIssueLabels } from "@/hooks/use-issue-labels";
 import { cn } from "@/lib/utils";
 
 import { AnswerText } from "./answer-text";
@@ -449,6 +449,8 @@ function SourceRow({
   isActive: boolean;
   onOpen: () => void;
 }) {
+  const labels = useIssueLabels();
+  const issueLabel = (row: ChatSource) => issueLabelFor(labels, row.document_id, row.edition);
   const date = formatIssueDateShort(source.issue_date);
   return (
     <li>
@@ -478,7 +480,7 @@ function SourceRow({
           </span>
           <span className="numeric mt-0.5 block text-[0.75rem] text-muted-foreground">
             {date ? `${date} · ` : ""}
-            {editionName(source.edition) ? `${editionName(source.edition)} · ` : ""}Page {source.page_number}
+            {issueLabel(source) ? `${issueLabel(source)} · ` : ""}Page {source.page_number}
             {muted && <span className="sr-only"> (not used in the answer)</span>}
           </span>
           {showOpening && source.content && (
@@ -503,6 +505,8 @@ function RelatedList({
   activeChunkId: string | null;
   onOpenSource: (source: ChatSource, terms: string[]) => void;
 }) {
+  const labels = useIssueLabels();
+  const issueLabel = (row: ChatSource) => issueLabelFor(labels, row.document_id, row.edition);
   const [open, setOpen] = useState(false);
 
   return (
@@ -538,7 +542,7 @@ function RelatedList({
                     </span>
                     <span className="numeric text-[0.75rem] text-muted-foreground">
                       {date ? `${date} · ` : ""}
-            {editionName(source.edition) ? `${editionName(source.edition)} · ` : ""}Page {source.page_number}
+            {issueLabel(source) ? `${issueLabel(source)} · ` : ""}Page {source.page_number}
                     </span>
                   </span>
                 </button>

@@ -29,10 +29,10 @@ import {
   useDocumentSearch,
   type DocumentSearchStatus,
 } from "@/hooks/use-document-search";
+import { issueLabelFor, useIssueLabels } from "@/hooks/use-issue-labels";
 import { useSourcePage } from "@/hooks/use-source-page";
 import type { DocumentPageSummary, ViewerSource } from "@/lib/api/types";
 import { formatIssueDate } from "@/lib/citations";
-import { editionName } from "@/lib/editions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -104,6 +104,7 @@ export function DocumentReader({
   initialQuery: string;
 }) {
   const router = useRouter();
+  const issueLabels = useIssueLabels();
   const { document, status, pages, current, previous, next, position, goTo } =
     useDocumentReader(documentId, initialPage);
 
@@ -277,7 +278,7 @@ export function DocumentReader({
       <ReaderHeader
         publication={document.publication ?? document.title}
         dateline={dateline}
-        editionLabel={editionName(document.edition)}
+        editionLabel={issueLabelFor(issueLabels, documentId, document.edition)}
         pageNumber={isPageView ? (current?.page_number ?? null) : null}
         pageCount={document.page_count}
         query={search.query}
