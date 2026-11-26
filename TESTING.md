@@ -52,7 +52,7 @@ Device and browser:
   - Write down: any question where the line appeared when it should not, or was missing when it should be there.
   - Notes:
 
-- [ ] **A7. Follow-up questions** (25 min) **(changed 2026-11-26: parts 1, 3, 5, 6 and 7 updated after a re-check of your first report)**. Start each part with **New question** so it begins fresh. Under every answer there is now a small grey line: *Searched for: …* (what the site actually looked for) or *Treated as a new question*.
+- [ ] **A7. Follow-up questions** (25 min) **(changed 2026-11-26: parts 1, 3, 5, 6, 7 and the new part 8 updated after a re-check of your first report)**. Start each part with **New question** so it begins fresh. Under every answer there is now a small grey line: *Searched for: …* (what the site actually looked for) or *Treated as a new question*.
   1. **The wreck.** Ask: *What shipping news appears in these issues?* Then: *tell me more about the wreck*.
      - Works when: the second answer is about the ship the first answer said was wrecked, not about ships that simply arrived. **(changed 2026-11-26)** Today the first answer reports one wreck, the *Dalhousie*, which sank off Beechy Head; if your first answer reports a different wreck, it should follow that one. The grey line names that ship.
   2. **Going back.** Then ask: *go back to the first ship you mentioned. what was its cargo?*
@@ -72,18 +72,33 @@ Device and browser:
      - Where several numbers sit side by side (like 1 2 3 4), tap each one on a phone. Each must open its own passage, never its neighbour's.
      - Works when: number 1 in the text opens the same passage as item 1 in the list, and so on. Passages the answer did not use are listed separately under *Matched the search, not used*, without numbers. You never see raw codes such as `[CITE:…]`, `[S3]`, `(S2)` or long strings of letters and digits in the answer.
      - **(changed 2026-11-26)** When two Sources rows come from the same page, each also shows its first few words in italics, so they no longer look like duplicates.
-  8. **Stop.** Ask a long question and press Stop right away, before any words appear. Then ask another and press Stop halfway through the answer.
+  8. **"Afterwards"** **(new 2026-11-26)**. New question. Ask: *What shipping news appears in these issues?* Then *tell me more about the wreck*, then *What happened to them afterwards?*
+     - Works when: if the archive has nothing more on that ship, the answer says so in one sentence and does not repeat the arrival or wreck details it already gave. If it does find something new, it says it with a number you can tap.
+  9. **Stop.** Ask a long question and press Stop right away, before any words appear. Then ask another and press Stop halfway through the answer.
      - Works when: stopped early, it says *Stopped before an answer was written. The passages it found are below.* (never "none of these answer the question"); stopped halfway, it keeps the words so far and adds *You stopped this answer.*
-  9. **New question and Undo.** After a few questions, press **New question**. A bar says *Conversation cleared · Undo* for about 10 seconds. Press Undo. Then try again and let the bar disappear, and reload the page.
+  10. **New question and Undo.** After a few questions, press **New question**. A bar says *Conversation cleared · Undo* for about 10 seconds. Press Undo. Then try again and let the bar disappear, and reload the page.
      - Works when: Undo brings back the whole conversation and any newspaper or date choice you had. Without Undo, the conversation is gone after a reload.
   - Write down: for each part, the questions, the grey line you saw, and OK or PROBLEM.
+  - Notes:
+
+- [ ] **A9. Old-fashioned words and questions in your own words** (20 min) **(new 2026-11-26: the site now knows the papers' old spellings and short forms, and chooses its passages more carefully)**. Start each with **New question**.
+  1. *Which ship brought guano from the north coast in December 1843?* (the paper prints *huano*)
+  2. *Was the market busy with Chilean demand in January 1844?* (the paper prints *Chilian*)
+  3. *Who was the captain of the steamer Arauco and where did it come from?* (the paper prints *Br. str.* and *Capt.*)
+  4. *Which ship was due to sail to London early next month in January 1844?* (the paper prints *5th prox.*)
+  5. *Why was the port city short of money for basic services?* (the paper says *debt and insolvency*)
+  6. *Was there a group trying to stop gentlemen settling quarrels with pistols?* (the paper says *duelling*)
+  7. *What sports did the British community play in Chile?*
+  8. Then three of your own: questions in plain modern English about something you have read on a page, without copying the page's words.
+  - Works when: each answer finds the passage and cites it with a number that opens the right page. Note how long each answer takes to start (it can be about a second slower than before).
+  - Write down: every question where it missed, and what the page actually says. These become new test questions.
   - Notes:
 
 - [ ] **A8. Dates for all newspapers, and the supplement** (10 min) **(changed 2026-11-24)**.
   1. Open **Newspapers and dates**. At the top there is a **Dates** block with *From year* and *To year*, and *Exact dates…*. Choose 1891 to 1891 without choosing a newspaper, and ask: *What ships arrived?*
      - Works when: every source is from 1891, from any paper, and the label near the question box says *All newspapers, 1891*. Then choose one newspaper too and check both choices show and both apply.
   2. Choose issues to ask about and find *The Chilian Times*, 14 March 1891. There are two: the issue and its **Supplement**. Open the supplement from Browse and from a citation.
-     - Works when: one of them is labelled *Supplement* in the list, in the citation, in the Sources list and at the top of the page viewer. You never see a file name (anything like "Chilean Times 2").
+     - Works when: one of them is labelled *Supplement* in the list, in the citation, in the Sources list and at the top of the page viewer. **(changed 2026-11-26)** Pin the supplement with Choose issues: the bar above the question box should read *The Chilian Times (Supplement), 14 Mar 1891*. You never see a file name (anything like "Chilean Times 2").
   - Notes:
 
 ## B. Browse: finding every mention

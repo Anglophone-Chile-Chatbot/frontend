@@ -55,9 +55,9 @@ git history and `infra/BUILT.md`.
   into the older answer's list; two passages from one page looked like duplicates (now show their first words);
   "See every match" was 21 px tall on desktop; the "Which did you mean?" buttons arrived behind the question box on
   phones (the scroll now follows them). The chips are now seen working live.
-- [ ] **Small, no live case today:** the "Issue 1 / Issue 2" fallback shows in lists but not in the reader header,
-  the Sources rows or the scope bar (code audit 2026-11-26; the reader only knows its own issue). Needs the sibling group passed in (or a backend field) once two same-day
-  issues without an edition exist.
+- [x] **"Issue 1 / Issue 2" in the reader header, Sources rows and scope bar** (built 2026-11-26, `use-issue-labels`).
+- [ ] **Before the full collection:** that hook reads one page of 200 issues; with ~4,300 issues the server must send
+  the label with each issue (a `documents` field computed per paper and day) and the hook goes away.
 - [ ] **Zoom without pixelation (Shakib, 2026-11-25).** Today's scans are a 192 DPI render (~1920 px wide, about 23%
   of the library scan's pixels), so zooming blurs on an ordinary laptop. The originals are 4000 px (backend
   EXPERIMENTS run 29). **Settled (Shakib 2026-11-25, backend CHUNK 31):** 3,200 px AVIF q60, or the page's own
